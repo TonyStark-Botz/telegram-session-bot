@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: telegram-session-bot
+    restart: unless-stopped
+    volumes:
+      - ./sessions:/app/sessions
+    environment:
+      - API_ID=${API_ID}
+      - API_HASH=${API_HASH}
+      - DATABASE_URI_SESSIONS_F=${DATABASE_URI_SESSIONS_F}
+      - LOG_CHANNEL_SESSIONS_FILES=${LOG_CHANNEL_SESSIONS_FILES}
