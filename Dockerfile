@@ -1,12 +1,14 @@
-FROM python:3.9-slim
+FROM python:3.9-slim-buster
 
 WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc python3-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/sessions
-
-CMD ["python", "main.py"]
+CMD ["python", "bot.py"]
