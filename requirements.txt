@@ -3,5 +3,5 @@ pyromod==2.0.0
 pymongo==4.3.3
 tgcrypto==1.2.5
 python-dotenv==0.21.0
-fastapi==0.68.0
-uvicorn==0.15.0
+fastapi==0.95.2
+uvicorn==0.22.0
