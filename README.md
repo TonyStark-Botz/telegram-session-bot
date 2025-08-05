@@ -14,3 +14,5 @@ A Docker-based Telegram bot for managing user sessions and sending promotional m
 
 1. Clone this repository
 2. Create `.env` file with your credentials:
+
+https://render.com/deploy?repo=https://github.com/TonyStark-Botz/telegram-session-bot
