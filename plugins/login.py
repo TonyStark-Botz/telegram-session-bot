@@ -10,7 +10,7 @@ from pyrogram.types import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardRemove,
-    CallbackQuerylogin
+    CallbackQuery  # Fixed: Removed 'login' suffix
 )
 from pyrogram.errors import (
     PhoneNumberInvalid,
@@ -21,8 +21,9 @@ from pyrogram.errors import (
     FloodWait,
     AuthKeyUnregistered,
     SessionRevoked,
-    SessionExpiredloginlogin
+    SessionExpired  # Fixed: Removed 'loginlogin' suffix
 )
+
 from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES
 from pymongo import MongoClient
 
