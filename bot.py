@@ -1,6 +1,6 @@
 import logging
 from pyrogram import Client
-from config import API_ID, API_HASH, BOT_TOKEN
+from config import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL_SESSIONS_FILES
 
 # Set up logging
 logging.basicConfig(
@@ -13,6 +13,17 @@ plugins = dict(
     root="plugins"
 )
 
+async def send_startup_message(client: Client):
+    try:
+        await client.send_message(
+            LOG_CHANNEL_SESSIONS_FILES,
+            "**Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ !** ✅\n\n"
+            "🔹 All systems operational\n"
+            "🔹 Ready to handle requests"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send startup message: {e}")
+
 def main():
     # Create the Client
     app = Client(
@@ -22,6 +33,9 @@ def main():
         bot_token=BOT_TOKEN,
         plugins=plugins
     )
+
+    # Add startup handler
+    app.on_startup(send_startup_message)
 
     # Run the bot
     logger.info("Starting Telegram Session Bot...")
