@@ -1,5 +1,7 @@
 FROM python:3.10-slim-bullseye
 
+EXPOSE 8080
+
 RUN apt update && apt upgrade -y
 RUN apt install git -y
 COPY requirements.txt /requirements.txt
