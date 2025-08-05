@@ -2,6 +2,7 @@ services:
   - type: web
     name: telegram-session-bot
     env: python
+    pythonVersion: "3.11"  # Force Python 3.11
     startCommand: python3 bot.py
     buildCommand: pip install -r requirements.txt
     repo: https://github.com/TonyStark-Botz/telegram-session-bot
