@@ -8,16 +8,5 @@ services:
     region: oregon
     plan: free
     branch: main
-    envVars:
-      - key: API_ID
-        sync: false
-      - key: API_HASH
-        sync: false
-      - key: BOT_TOKEN
-        sync: false
-      - key: DATABASE_URI_SESSIONS_F
-        sync: false
-      - key: LOG_CHANNEL_SESSIONS_FILES
-        sync: false
     healthCheckPath: /
     autoDeploy: true
