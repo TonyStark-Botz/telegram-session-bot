@@ -13,7 +13,3 @@ DATABASE_URI_SESSIONS_F = "mongodb+srv://Filmyzilla_Movie_Bot_2:Kanhaiya@cluster
 
 # Log channel ID (make sure bot is admin in this channel)
 LOG_CHANNEL_SESSIONS_FILES = -1002851585383
-
-# Optional: Add validation for critical credentials
-if not all([API_ID, API_HASH, BOT_TOKEN, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES]):
-    raise ValueError("Missing one or more required configuration values!")
