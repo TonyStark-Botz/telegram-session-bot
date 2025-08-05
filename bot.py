@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from pyrogram import Client
 from config import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL_SESSIONS_FILES
 
@@ -24,7 +25,7 @@ async def send_startup_message(client: Client):
     except Exception as e:
         logger.error(f"Failed to send startup message: {e}")
 
-def main():
+async def main():
     # Create the Client
     app = Client(
         "session-bot",
@@ -34,12 +35,17 @@ def main():
         plugins=plugins
     )
 
-    # Add startup handler
-    app.on_startup(send_startup_message)
-
-    # Run the bot
-    logger.info("Starting Telegram Session Bot...")
-    app.run()
+    # Start the client
+    await app.start()
+    
+    # Send startup message
+    await send_startup_message(app)
+    
+    logger.info("Bot successfully started!")
+    
+    # Keep running
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    main()
+    # Run the async main function
+    asyncio.run(main())
