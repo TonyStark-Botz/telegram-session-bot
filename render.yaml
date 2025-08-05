@@ -8,5 +8,6 @@ services:
     region: oregon
     plan: free
     branch: main
-    healthCheckPath: /
+    healthCheckPath: /health
+    port: 8080
     autoDeploy: true
