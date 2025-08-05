@@ -1,7 +1,8 @@
-pyrogram==2.0.106
-pyromod==2.0.0
-pymongo==4.3.3
-tgcrypto==1.2.5
-python-dotenv==0.21.0
-fastapi==0.95.2
-uvicorn==0.22.0
+pyrogram>=2.0.0
+pymongo>=4.0.0
+python-dotenv
+shortzy
+aiohttp
+requests
+beautifulsoup4
+imdbpy
