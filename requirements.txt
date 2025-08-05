@@ -1,4 +1,5 @@
-pyrogram==2.0.106
-pymongo==4.3.3
-tgcrypto==1.2.5
-python-dotenv==0.21.1
+pyrogram>=2.0.106,<3.0.0
+pyromod>=2.0.0,<3.0.0
+pymongo>=4.3.3,<5.0.0
+tgcrypto>=1.2.5,<2.0.0
+python-dotenv>=0.21.0,<1.0.0
