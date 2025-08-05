@@ -2,6 +2,7 @@ import logging
 import asyncio
 from pyrogram import Client
 from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL_SESSIONS_FILES
+from aiohttp import web
 
 # Set up logging
 logging.basicConfig(
@@ -14,19 +15,35 @@ plugins = dict(
     root="plugins"
 )
 
+async def health_check(request):
+    return web.Response(text="OK", status=200)
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/health', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    await site.start()
+    logger.info("Health check server running on port 8080")
+
 async def send_startup_message(client: Client):
     try:
         await client.send_message(
             LOG_CHANNEL_SESSIONS_FILES,
             "**Bᴏᴛ Rᴇsᴛᴀʀᴛᴇᴅ !** ✅\n\n"
             "🔹 All systems operational\n"
-            "🔹 Ready to handle requests"
+            "🔹 Ready to handle requests\n"
+            f"🔹 Health check: http://0.0.0.0:8080/health"
         )
     except Exception as e:
         logger.error(f"Failed to send startup message: {e}")
 
 async def main():
-    # Create the Client
+    # Start health check server
+    await start_web_server()
+
+    # Create and start Pyrogram Client
     app = Client(
         "session-bot",
         api_id=API_ID,
@@ -35,17 +52,17 @@ async def main():
         plugins=plugins
     )
 
-    # Start the client
     await app.start()
-    
-    # Send startup message
     await send_startup_message(app)
     
-    logger.info("Bot successfully started!")
-    
+    logger.info("""
+    ====================================
+    ✅ Bot FULLY STARTED AND READY TO USE!
+    ====================================
+    """)
+
     # Keep running
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    # Run the async main function
     asyncio.run(main())
