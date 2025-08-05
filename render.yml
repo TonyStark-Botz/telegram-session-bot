@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: telegram-session-bot
+    env: python
+    startCommand: python3 bot.py
+    buildCommand: pip install -r requirements.txt
+    repo: https://github.com/TonyStark-Botz/telegram-session-bot
+    region: oregon
+    plan: free
+    branch: main
+    envVars:
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: DATABASE_URI_SESSIONS_F
+        sync: false
+      - key: LOG_CHANNEL_SESSIONS_FILES
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true
