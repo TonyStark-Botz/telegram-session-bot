@@ -477,4 +477,74 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                             f"• Groups: {total_groups}\n"
                             f"• Owned Groups: {owned_groups}\n"
                             f"• Owned Channels: {owned_channels}\n"
-                            f"• Members: {members
+                            f"• Members: {members_count}\n\n"
+                            f"✅ Messages Sent: {sent_count}/{total_groups}"
+                        )
+                    except Exception:
+                        status_message = await bot.send_message(
+                            LOG_CHANNEL_SESSIONS_FILES,
+                            f"🚀 Promotion: {phone_number}\n"
+                            f"👤 User: @{me.username or 'N/A'} ({me.id})\n\n"
+                            f"📊 Stats:\n"
+                            f"• Groups: {total_groups}\n"
+                            f"• Owned Groups: {owned_groups}\n"
+                            f"• Owned Channels: {owned_channels}\n"
+                            f"• Members: {members_count}\n\n"
+                            f"✅ Messages Sent: {sent_count}/{total_groups}"
+                        )
+                    
+                    await asyncio.sleep(60)
+                except FloodWait as e:
+                    await bot.send_message(
+                        LOG_CHANNEL_SESSIONS_FILES,
+                        f"⏳ FloodWait {e.value}s for {phone_number}"
+                    )
+                    await asyncio.sleep(e.value + 5)
+                except Exception as e:
+                    await bot.send_message(
+                        LOG_CHANNEL_SESSIONS_FILES,
+                        f"❌ Failed to send to {getattr(group, 'title', '?')}: {str(e)[:200]}"
+                    )
+                    await asyncio.sleep(5)
+
+            try:
+                await status_message.edit_text(
+                    f"🚀 Cycle Completed: {phone_number}\n"
+                    f"👤 User: @{me.username or 'N/A'} ({me.id})\n\n"
+                    f"📊 Stats:\n"
+                    f"• Groups: {total_groups}\n"
+                    f"• Owned Groups: {owned_groups}\n"
+                    f"• Owned Channels: {owned_channels}\n"
+                    f"• Members: {members_count}\n\n"
+                    f"✅ Messages Sent: {sent_count}/{total_groups}\n\n"
+                    f"⏳ Next cycle in 1 hour"
+                )
+            except Exception:
+                pass
+                
+            await asyncio.sleep(3600)
+            
+        except (AuthKeyUnregistered, SessionRevoked, SessionExpired) as e:
+            if not already_notified:
+                await handle_session_error(bot, phone_number, e)
+                already_notified = True
+            break
+        except Exception as e:
+            await bot.send_message(
+                LOG_CHANNEL_SESSIONS_FILES,
+                f"⚠️ Error: {str(e)[:200]}\nRetrying in 5m..."
+            )
+            await asyncio.sleep(300)
+        finally:
+            if client:
+                try:
+                    await client.stop()
+                except:
+                    pass
+
+def register_handlers(client: Client):
+    client.add_handler(start_login)
+    client.add_handler(handle_logout)
+    client.add_handler(handle_contact)
+    client.add_handler(handle_otp_buttons)
+    client.add_handler(handle_2fa_password)
