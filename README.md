@@ -34,15 +34,6 @@ Use these commands:
 • Start Command: <code>python3 bot.py</code>
 <br>
 <br>
-Go to https://uptimerobot.com/ and add a monitor to keep your bot alive.
-<br>
-<br>
-Use these settings when adding a monitor:</b>
-<br>
-<br>
-<img src="https://telegra.ph/file/a79a156e44f43c9833b50.jpg" alt="render template">
-<br>
-<br>
 <b>Click on the below button to deploy directly to render ↓</b>
 <br>
 <br>
