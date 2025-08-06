@@ -6,7 +6,6 @@
   <img src="https://envs.sh/ExA.jpg" alt="Kanus_Session_Bot">
 </p>
 
-<p align="center">
 ![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=𝑊𝑒𝑙𝑐𝑜𝑚𝑒+𝑇𝑜+Bot;𝐴+𝑠𝑖𝑚𝑝𝑙𝑒+𝑎𝑛𝑑+𝑝𝑜𝑤𝑒𝑟𝑓𝑢𝑙+𝐵𝑜𝑡!)
 </p>
 
