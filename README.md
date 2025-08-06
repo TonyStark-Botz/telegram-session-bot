@@ -1,5 +1,5 @@
 <h1 align="center">
-  Kanus_Session_Bot
+  Kanus Session Bot
 </h1>
 
 <p align="center">
@@ -8,11 +8,14 @@
 
 ![Typing SVG](https://readme-typing-svg.herokuapp.com/?lines=𝑊𝑒𝑙𝑐𝑜𝑚𝑒+𝑇𝑜+Bot;𝐴+𝑠𝑖𝑚𝑝𝑙𝑒+𝑎𝑛𝑑+𝑝𝑜𝑤𝑒𝑟𝑓𝑢𝑙+𝐵𝑜𝑡!)
 
+## Chennal 🖤
+
 <p align="center">
 <b>𝑇𝑜 𝑘𝑛𝑜𝑤 𝑎𝑏𝑜𝑢𝑡 𝑎𝑙𝑙 𝑓𝑒𝑎𝑡𝑢𝑟𝑒𝑠, 𝐽𝑜𝑖𝑛 𝑜𝑢𝑟 <br> <a href='https://t.me/Kanus_Network'>𝑢𝑝𝑑𝑎𝑡𝑒𝑠 𝑐ℎ𝑎𝑛𝑛𝑒𝑙</a>.</b>
 </p>
 
-
+## Deploy ⚙️
+ 
 <details><summary>Deploy To Heroku</summary>
 <p>
 <br>
@@ -43,7 +46,6 @@ Use these commands:
 </details>
 
 <hr>
-
 
 ## Note 🏷️
  
