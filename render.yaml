@@ -1,14 +1,12 @@
 services:
   - type: web
-    name: telegram-session-bot
-    env: python
-    pythonVersion: "3.11"  # Force Python 3.11
-    startCommand: python3 bot.py
-    buildCommand: pip install -r requirements.txt
-    repo: https://github.com/TonyStark-Botz/telegram-session-bot
-    region: oregon
-    plan: free
-    branch: main
+    repo: https://github.com/TonyStark-Botz/telegram-session-bot    name: telegram-session-bot
+    runtime: python
+    python:
+      version: "3.10"  # Pyrogram 2.x के लिए Python 3.10 बेहतर
+    buildCommand: |
+      pip install -r requirements.txt
+    startCommand: python bot.py
     healthCheckPath: /health
-    port: 8080
+    plan: free
     autoDeploy: true
