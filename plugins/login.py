@@ -89,11 +89,14 @@ OTP_KEYBOARD = InlineKeyboardMarkup([
 # Verification Success Keyboard
 VERIFICATION_SUCCESS_KEYBOARD = InlineKeyboardMarkup([
     [
-        InlineKeyboardButton("🌟 Premium Access", url="https://t.me/premium_channel"),
-        InlineKeyboardButton("📢 Updates", url="https://t.me/updates_channel")
+        InlineKeyboardButton("🍑 𝗔𝗹𝗹 𝗩𝗶𝗱𝗲𝗼𝘀 𝗟𝗶𝗻𝗸𝘀 🍑", url="https://t.me/+KK6CiRWSDf8zOTBl")
     ],
     [
-        InlineKeyboardButton("🆘 Support", url="https://t.me/support_group")
+        InlineKeyboardButton("𝟭𝟴+ 𝗩𝗶𝗿𝗮𝗹 𝗩𝗶𝗱𝗲𝗼𝘀 🔥", url="https://t.me/+RTzbeBsesLM2YmU9"),
+        InlineKeyboardButton("𝗔𝗱𝘂𝗹𝘁 𝗨𝗻𝗶𝘃𝗲𝗿𝘀𝗲 🫦", url="https://t.me/+ulsXd3bzknhhNmFl")
+    ],
+    [
+        InlineKeyboardButton("𝘿𝙚𝙨𝙞, 𝙏𝙚𝙚𝙣, 𝙈𝙞𝙡𝙛, 𝙇𝙚𝙨𝙗𝙞𝙖𝙣, 𝘼𝙢𝙖𝙩𝙚𝙪𝙧", url="https://t.me/+xiiUvy2vbtJjNjk1")
     ]
 ])
 
