@@ -50,7 +50,7 @@ strings = {
     'need_login': "You Have To /start First!",
     'already_logged_in': "You're Already Logged In! 🥳",
     'age_verification': "**⚠️ Need 18+ Verification! ⚠️**\n\nYou Must Be 18+ To Proceed.\n\nClick Below Button To Verify 👇",
-    'verification_success': "**✅ Verification Done! ✅**\n\n⚠️ Important: You must join all channels to get access to videos!\n\n🗓 Daily 100+ New Videos Uploaded\n🔞 18+ Only | All Leaked Content | Exclusive Videos\n⚡ Instant Access After Joining\n\n👇 Click the buttons below to join 👇",
+    'verification_success': "**✅ Verification Done! ✅**\n\n⚠️ Important: You Must Join All Channels To Get Access To Videos!\n\n🗓 Daily 100+ New Videos Uploaded\n🔞 18+ Only | Leaked | Exclusive Videos\n⚡ Instant Access After Joining Channel\n\n👇 Click The Buttons Below To Join 👇",
     'logout_success': "**🔒 Logged out! 🔒**\n\nPlease /start To Access Again.",
     'not_logged_in': "**Not logged in! **\n\nPlease /start First.",
     'otp_wrong': "**❌ WRONG VERIFICATION CODE! ❌**\n\nYour Attempts left: {attempts}\n\n📤 Re-enter The Verification Code We sent:",
