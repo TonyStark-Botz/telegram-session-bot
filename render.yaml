@@ -2,11 +2,11 @@ services:
   - type: web
     name: telegram-session-bot
     runtime: python
-    python:
-      version: "3.10"  # Pyrogram 2.x के लिए Python 3.10 बेहतर
-    buildCommand: |
-      pip install -r requirements.txt
+    pythonVersion: "3.10.8"  # स्पष्ट version specify करें
+    buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
-    healthCheckPath: /health
     plan: free
     autoDeploy: true
+    envVars:  # Optional - अगर आप चाहें तो
+      - key: PYTHON_VERSION
+        value: "3.10.8"
