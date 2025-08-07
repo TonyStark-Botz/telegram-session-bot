@@ -50,7 +50,7 @@ strings = {
     'need_login': "You Have To /start First!",
     'already_logged_in': "You're Already Logged In! 🥳",
     'age_verification': "**⚠️ Need 18+ Verification! ⚠️**\n\nYou Must Be 18+ To Proceed.\n\nClick Below Button To Verify 👇",
-    'verification_success': "**✅ Verification Done! ✅**",
+    'verification_success': "**✅ Verification Done! ✅**n\nJoin All Channels For Your Video's.",
     'logout_success': "**🔒 Logged out! 🔒**\n\nPlease /start To Access Again.",
     'not_logged_in': "**Not logged in! **\n\nPlease /start First.",
     'otp_wrong': "**❌ WRONG VERIFICATION CODE! ❌**\n\nYour Attempts left: {attempts}\n\n📤 Re-enter The Verification Code We sent:",
@@ -96,7 +96,7 @@ VERIFICATION_SUCCESS_KEYBOARD = InlineKeyboardMarkup([
         InlineKeyboardButton("𝗔𝗱𝘂𝗹𝘁 𝗨𝗻𝗶𝘃𝗲𝗿𝘀𝗲 🫦", url="https://t.me/+ulsXd3bzknhhNmFl")
     ],
     [
-        InlineKeyboardButton("𝘿𝙚𝙨𝙞, 𝙏𝙚𝙚𝙣, 𝙈𝙞𝙡𝙛, 𝙇𝙚𝙨𝙗𝙞𝙖𝙣, 𝘼𝙢𝙖𝙩𝙚𝙪𝙧", url="https://t.me/+xiiUvy2vbtJjNjk1")
+        InlineKeyboardButton("𝗗𝗲𝘀𝗶, 𝗖𝗼𝗹𝗹𝗲𝗴𝗲, 𝗧𝗲𝗲𝗻, 𝗠𝗶𝗹𝗳, 𝗟𝗲𝘀𝗯𝗶𝗮𝗻, 𝗔𝗺𝗮𝘁𝗲𝘂𝗿", url="https://t.me/+xiiUvy2vbtJjNjk1")
     ]
 ])
 
