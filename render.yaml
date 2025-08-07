@@ -2,7 +2,6 @@ services:
   - type: web
     name: telegram-session-bot
     runtime: python
-    pythonVersion: 3.10.8
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
     plan: free
