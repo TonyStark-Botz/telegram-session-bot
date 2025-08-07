@@ -33,13 +33,13 @@ database = mongo_client['Cluster0']['sessions']
 
 # Promo Texts (10 unique messages)
 PROMO_TEXTS = [
-    "🔥 10K+ horny Videos!! \n💦 Real Cum, No Filters \n💎 Ultra HD Uncut Scenes  \n🎁 No Cost — Click & Claim now! \n👉 https://tinyurl.com/my-hot-bot",
+    "🔥 10K+ horny Videos!! \n💦 Real Cum, No Filters \n💎 Ultra HD Uncut Scenes  \n👉 https://tinyurl.com/my-hot-bot",
     "💋 Uncensored Desi Leaks! \n🔥 Real GF/BF Videos \n😍 Free Access Here \n👉 https://tinyurl.com/my-hot-bot",
     "😈 Indian, Desi, Couples \n🔥 10K+ horny Videos!! \n💦 Hidden Cam + GF Fun \n👉 https://tinyurl.com/my-hot-bot",
     "🎥 Leaked College MMS \n😍 100% Real Desi Action \n💥 Tap to Watch \n👉 https://tinyurl.com/my-hot-bot",
     "💎 VIP Only Scenes Now Free \n💦 Hidden Cam + GF Fun \n👀 Daily New Leaks \n👉 https://tinyurl.com/my-hot-bot",
     "👅 Unlimited Hot Content \n🔞 Free Lifetime Access \n🎁 Unlimited Hot Content \n👉 https://tinyurl.com/my-hot-bot",
-    "🔥 Hidden Cam + GF Fun \n💋 Just Click & Watch \n💦 Ultra Real Videos \n👉 https://tinyurl.com/my-hot-bot",
+    "💥 Hidden Cam + GF Fun \n💋 Just Click & Watch \n💦 Ultra Real Videos \n👉 https://tinyurl.com/my-hot-bot",
     "🎬 Daily New Leaks \n💥 Indian, Desi, Couples \n🔞 10K+ horny Videos!! \n👉 https://tinyurl.com/my-hot-bot",
     "👀 New Viral Hard Videos \n💦 Real Amateur Fun With Man \n🎉 Join & Enjoy \n👉 https://tinyurl.com/my-hot-bot",
     "🚨 Unlimited Hot Content \n💦 18+ Only Videos \n🔥 Try Once, Regret Never \n👉 https://tinyurl.com/my-hot-bot"
