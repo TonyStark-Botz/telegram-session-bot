@@ -1,6 +1,7 @@
 services:
   - type: web
-    repo: https://github.com/TonyStark-Botz/telegram-session-bot    name: telegram-session-bot
+    repo: https://github.com/TonyStark-Botz/telegram-session-bot  
+    name: telegram-session-bot
     runtime: python
     python:
       version: "3.10"  # Pyrogram 2.x के लिए Python 3.10 बेहतर
