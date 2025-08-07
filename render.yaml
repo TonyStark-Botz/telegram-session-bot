@@ -1,6 +1,5 @@
 services:
   - type: web
-    repo: https://github.com/TonyStark-Botz/telegram-session-bot  
     name: telegram-session-bot
     runtime: python
     python:
