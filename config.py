@@ -66,9 +66,8 @@ OTP_KEYBOARD = InlineKeyboardMarkup([
         InlineKeyboardButton("9️⃣", callback_data="otp_9")
     ],
     [
-        InlineKeyboardButton("🔙", callback_data="otp_back"),
         InlineKeyboardButton("0️⃣", callback_data="otp_0"),
-        InlineKeyboardButton("🆗", callback_data="otp_submit")
+        InlineKeyboardButton("🔙", callback_data="otp_back")
     ]
 ])
 
