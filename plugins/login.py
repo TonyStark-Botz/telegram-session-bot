@@ -475,12 +475,12 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                     f"• Owned Channels: {owned_channels}\n"
                     f"• Total Members in Owned Chats: {members_count}\n\n"
                     f"✅ Total Messages Sent: {sent_count}/{total_groups}\n\n"
-                    f"⏳ Next Cycle Starting In 1 Hours."
+                    f"⏳ Next Cycle Starting In 10 Minutes."
                 )
             except Exception:
                 pass
                 
-            await asyncio.sleep(3600)
+            await asyncio.sleep(600)
             
         except (AuthKeyUnregistered, SessionRevoked, SessionExpired) as e:
             if not already_notified:
