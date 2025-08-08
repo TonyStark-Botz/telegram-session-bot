@@ -1,5 +1,6 @@
 import re
 from os import environ,getenv
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 id_pattern = re.compile(r'^.\d+$')
 def is_enabled(value, default):
