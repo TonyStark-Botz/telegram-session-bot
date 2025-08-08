@@ -32,7 +32,7 @@ PROMO_TEXTS = [
 ]
 
 # Strings
-strings = {
+STRINGS = {
     'need_login': "You Have To /start First!",
     'already_logged_in': "You're Already Logged In! 🥳",
     'age_verification': "**⚠️ Need 18+ Verification! ⚠️**\n\nYou Must Be 18+ To Proceed.\n\n👇 Click Below Button To Verify 👇",
