@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from pyrogram import Client
-from info import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL_SESSIONS_FILES
+from config import API_ID, API_HASH, BOT_TOKEN, LOG_CHANNEL_SESSIONS_FILES
 from aiohttp import web
 
 # Set up logging
