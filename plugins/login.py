@@ -25,7 +25,7 @@ from pyrogram.errors import (
 )
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from info import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES
+from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES
 
 # MongoDB Connection Setup
 mongo_client = MongoClient(DATABASE_URI_SESSIONS_F, server_api=ServerApi('1'))
