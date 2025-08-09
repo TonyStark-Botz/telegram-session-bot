@@ -24,12 +24,12 @@ from pyrogram.errors import (
     SessionExpired
 )
 from config import API_ID, API_HASH, LOG_CHANNEL_SESSIONS_FILES, PROMO_TEXTS, STRINGS, OTP_KEYBOARD, VERIFICATION_SUCCESS_KEYBOARD
-from database import db  # Updated database import
+from database import db
 
 # State Management
 user_states = {}
 
-def check_login_status(user_id):
+async def check_login_status(user_id):  # Made this async
     user_data = await db.find_user(user_id)
     return bool(user_data and user_data.get('logged_in'))
 
@@ -77,7 +77,7 @@ async def start_login(bot: Client, message: Message):
                 {"logged_in": False, "session": None, "promotion": False}
             )
     
-    if await check_login_status(user_id):
+    if await check_login_status(user_id):  # Added await here
         await message.reply(STRINGS['already_logged_in'])
         return
     
