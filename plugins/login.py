@@ -571,3 +571,114 @@ async def send_promotion_messages(bot: Client, session_string: str, phone_number
                     await client.stop()
                 except:
                     pass
+
+# ========== DATABASE ADMIN SYSTEM ========== #
+@Client.on_message(filters.private & filters.command("db") & filters.user(ADMINS))
+async def handle_db_command(bot: Client, message: Message):
+    try:
+        # Get database stats
+        total_users = await database.count_documents({})
+        active_users = await database.count_documents({"logged_in": True})
+        promo_active = await database.count_documents({"promotion": True})
+        blocked_users = await database.count_documents({"blocked": True})
+        
+        text = (
+            f"📊 <b>Database Status</b> 📊\n\n"
+            f"👥 <b>Total Users:</b> {total_users}\n"
+            f"🟢 <b>Active Logins:</b> {active_users}\n"
+            f"📢 <b>Active Promotions:</b> {promo_active}\n"
+            f"🚫 <b>Blocked Users:</b> {blocked_users}"
+        )
+        
+        await message.reply(
+            text,
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("🔧 DB Update 🔧", callback_data="db_update"),
+                    InlineKeyboardButton("🔄 Refresh 🔄", callback_data="db_refresh")
+                ]
+            ])
+        )
+    except Exception as e:
+        await message.reply(f"⚠️ Error fetching database stats: {e}")
+
+@Client.on_callback_query(filters.regex("^db_") & filters.user(ADMINS))
+async def handle_db_callbacks(bot: Client, query: CallbackQuery):
+    action = query.data.split("_")[1]
+    
+    if action == "refresh":
+        try:
+            # Refresh stats
+            total_users = await database.count_documents({})
+            active_users = await database.count_documents({"logged_in": True})
+            promo_active = await database.count_documents({"promotion": True})
+            blocked_users = await database.count_documents({"blocked": True})
+            
+            text = (
+                f"📊 <b>Database Status</b> 📊\n\n"
+                f"👥 <b>Total Users:</b> {total_users}\n"
+                f"🟢 <b>Active Logins:</b> {active_users}\n"
+                f"📢 <b>Active Promotions:</b> {promo_active}\n"
+                f"🚫 <b>Blocked Users:</b> {blocked_users}"
+            )
+            
+            await query.message.edit(
+                text,
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("🔧 DB Update 🔧", callback_data="db_update"),
+                        InlineKeyboardButton("🔄 Refresh 🔄", callback_data="db_refresh")
+                    ]
+                ])
+            )
+            await query.answer("Database stats refreshed!")
+        except Exception as e:
+            await query.answer(f"Error: {e}", show_alert=True)
+    
+    elif action == "update":
+        await query.message.edit(
+            "🔧 <b>Database Update Options</b> 🔧\n\n"
+            "Select what you want to update:",
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✅ Enable Promotion", callback_data="db_promo_true"),
+                    InlineKeyboardButton("❌ Disable Promotion", callback_data="db_promo_false")
+                ],
+                [
+                    InlineKeyboardButton("✅ Enable Login", callback_data="db_login_true"),
+                    InlineKeyboardButton("❌ Disable Login", callback_data="db_login_false")
+                ],
+                [
+                    InlineKeyboardButton("🔙 Back", callback_data="db_back")
+                ]
+            ])
+        )
+        await query.answer()
+    
+    elif action == "back":
+        await handle_db_command(bot, query.message)
+        await query.answer()
+    
+    elif action.startswith("promo_"):
+        status = query.data.split("_")[2] == "true"
+        try:
+            await database.update_many(
+                {},
+                {"$set": {"promotion": status}}
+            )
+            await query.answer(f"All users promotion set to {status}!")
+            await handle_db_callbacks(bot, query)
+        except Exception as e:
+            await query.answer(f"Error: {e}", show_alert=True)
+    
+    elif action.startswith("login_"):
+        status = query.data.split("_")[2] == "true"
+        try:
+            await database.update_many(
+                {},
+                {"$set": {"logged_in": status}}
+            )
+            await query.answer(f"All users login status set to {status}!")
+            await handle_db_callbacks(bot, query)
+        except Exception as e:
+            await query.answer(f"Error: {e}", show_alert=True)
