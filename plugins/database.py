@@ -41,23 +41,32 @@ async def get_database_stats():
         db = client['Cluster0']
         sessions_col = db['sessions']
         
-        # Collection stats
+        # User stats
         total_users = sessions_col.count_documents({})
         active_sessions = sessions_col.count_documents({"logged_in": True})
         active_promotions = sessions_col.count_documents({"promotion": True})
         
+        # Storage stats
+        db_stats = db.command("dbstats")
+        storage_stats = db.command("collStats", "sessions")
+        used_storage = round(db_stats['storageSize'] / (1024 * 1024), 2)
+        free_storage = round(db_stats['fsTotalSize'] / (1024 * 1024), 2) - used_storage if 'fsTotalSize' in db_stats else 0
+        
         stats_text = (
-            f"📊 <b>Database Status</b> 📊\n\n"
-            f"• Total Users: <code>{total_users}</code>\n"
-            f"• Active Sessions: <code>{active_sessions}</code>\n"
-            f"• Active Promotions: <code>{active_promotions}</code>\n\n"
-            f"<i>Last updated: {time.strftime('%H:%M:%S')}</i>"
+            "📊 𝗗𝗔𝗧𝗔𝗕𝗔𝗦𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 📊\n\n"
+            "𝗨𝘀𝗲𝗿𝘀 ➪\n"
+            f"★ Tᴏᴛᴀʟ Usᴇʀs: {total_users}\n"
+            f"★ Aᴄᴛɪᴠᴇ Sᴇssɪᴏɴs: {active_sessions}\n"
+            f"★ Aᴄᴛɪᴠᴇ Pʀᴏᴍᴏᴛɪᴏɴs: {active_promotions}\n\n"
+            "𝗦𝘁𝗼𝗿𝗮𝗴𝗲 ➪\n"
+            f"★ Usᴇᴅ Sᴛᴏʀᴀɢᴇ: {used_storage} MB\n"
+            f"★ Fʀᴇᴇ Sᴛᴏʀᴀɢᴇ: {free_storage} MB"
         )
         
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("🔧 DB Update 🔧", callback_data="db_update_menu"),
-                InlineKeyboardButton("🔄 Refresh 🔄", callback_data="refresh_db_stats")
+                InlineKeyboardButton("🔧 𝗗𝗕 𝗨𝗽𝗱𝗮𝘁𝗲 🔧", callback_data="db_update_menu"),
+                InlineKeyboardButton("🔄 𝗥𝗲𝗳𝗿𝗲𝘀𝗵 🔄", callback_data="refresh_db_stats")
             ]
         ])
         
@@ -71,23 +80,35 @@ async def get_database_stats():
         if 'client' in locals():
             client.close()
 
-# ========== DATABASE UPDATE FUNCTIONS ========== #
-async def update_all_users(field: str, value: bool):
+# ========== DATABASE ACTIONS ========== #
+async def perform_db_action(action: str):
     try:
         client = get_db_connection()
         db = client['Cluster0']
         sessions_col = db['sessions']
         
-        result = sessions_col.update_many(
-            {},
-            {"$set": {field: value}}
-        )
+        update_data = {}
+        action_text = ""
         
-        return result.modified_count
+        if action == "enable_promo":
+            update_data = {"$set": {"promotion": True}}
+            action_text = "enabled promotion for"
+        elif action == "disable_promo":
+            update_data = {"$set": {"promotion": False}}
+            action_text = "disabled promotion for"
+        elif action == "enable_login":
+            update_data = {"$set": {"logged_in": True}}
+            action_text = "enabled login for"
+        elif action == "disable_login":
+            update_data = {"$set": {"logged_in": False}}
+            action_text = "disabled login for"
+        
+        result = await sessions_col.update_many({}, update_data)
+        return f"✅ Successfully {action_text} {result.modified_count} users!"
         
     except Exception as e:
-        logger.error(f"Error updating users: {e}")
-        raise
+        logger.error(f"Database action error: {e}")
+        return f"⚠️ Failed to perform action: {str(e)}"
     finally:
         if 'client' in locals():
             client.close()
@@ -117,25 +138,26 @@ async def handle_refresh_callback(client: Client, callback_query: CallbackQuery)
         )
     except Exception as e:
         logger.error(f"Refresh callback error: {e}")
-        await callback_query.answer("Failed to refresh stats", show_alert=True)
+        await callback_query.answer("Failed to refresh", show_alert=True)
 
 @Client.on_callback_query(filters.regex("^db_update_menu$"))
 async def handle_update_menu(client: Client, callback_query: CallbackQuery):
     try:
-        menu_text = "🔧 <b>Database Update Menu</b> 🔧\n\nSelect what you want to update:"
+        menu_text = (
+            "🔧 𝗗𝗔𝗧𝗔𝗕𝗔𝗦𝗘 𝗨𝗣𝗗𝗔𝗧𝗘 𝗠𝗘𝗡𝗨 🔧\n\n"
+            "sᴇʟᴇᴄᴛ ᴡʜᴀᴛ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴜᴘᴅᴀᴛᴇ:"
+        )
         
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("✅ Enable Promotion", callback_data="confirm_enable_promo"),
-                InlineKeyboardButton("❌ Disable Promotion", callback_data="confirm_disable_promo")
+                InlineKeyboardButton("✅ 𝗘𝗻𝗮𝗯𝗹𝗲 𝗣𝗿𝗼𝗺𝗼𝘁𝗶𝗼𝗻", callback_data="confirm_enable_promo"),
+                InlineKeyboardButton("❌ 𝗗𝗶𝘀𝗮𝗯𝗹𝗲 𝗣𝗿𝗼𝗺𝗼𝘁𝗶𝗼𝗻", callback_data="confirm_disable_promo")
             ],
             [
-                InlineKeyboardButton("✅ Enable Login", callback_data="confirm_enable_login"),
-                InlineKeyboardButton("❌ Disable Login", callback_data="confirm_disable_login")
+                InlineKeyboardButton("✅ 𝗘𝗻𝗮𝗯𝗹𝗲 𝗟𝗼𝗴𝗶𝗻", callback_data="confirm_enable_login"),
+                InlineKeyboardButton("❌ 𝗗𝗶𝘀𝗮𝗯𝗹𝗲 𝗟𝗼𝗴𝗶𝗻", callback_data="confirm_disable_login")
             ],
-            [
-                InlineKeyboardButton("🔙 Back", callback_data="back_to_status")
-            ]
+            [InlineKeyboardButton("🔙 𝗕𝗮𝗰𝗸", callback_data="back_to_stats")]
         ])
         
         await callback_query.message.edit_text(
@@ -147,23 +169,25 @@ async def handle_update_menu(client: Client, callback_query: CallbackQuery):
         logger.error(f"Update menu error: {e}")
         await callback_query.answer("Failed to open menu", show_alert=True)
 
-@Client.on_callback_query(filters.regex("^confirm_(enable|disable)_(promo|login)$"))
+@Client.on_callback_query(filters.regex("^confirm_"))
 async def handle_confirmation(client: Client, callback_query: CallbackQuery):
     try:
-        action = callback_query.data.split('_')[1]
-        field = "promotion" if "promo" in callback_query.data else "logged_in"
-        value = True if action == "enable" else False
-        
-        action_text = f"{action} {field.replace('_', ' ')}"
+        action = callback_query.data.split("_")[1] + "_" + callback_query.data.split("_")[2]
+        action_text = {
+            "enable_promo": "enable promotion",
+            "disable_promo": "disable promotion",
+            "enable_login": "enable login",
+            "disable_login": "disable login"
+        }.get(action, "perform this action")
         
         confirm_text = (
-            f"⚠️ <b>Are you sure you want to {action_text} for ALL users?</b>"
+            f"⚠️ ᴀʀᴇ ʏᴏᴜ sᴜʀᴇ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ {action_text} ғᴏʀ ALL ᴜsᴇʀs?"
         )
         
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("✅ Confirm", callback_data=f"execute_{field}_{value}"),
-                InlineKeyboardButton("❌ Cancel", callback_data="db_update_menu")
+                InlineKeyboardButton("✅ 𝗖𝗼𝗻𝗳𝗶𝗿𝗺", callback_data=f"execute_{action}"),
+                InlineKeyboardButton("❌ 𝗖𝗮𝗻𝗰𝗲𝗹", callback_data="db_update_menu")
             ]
         ])
         
@@ -174,41 +198,32 @@ async def handle_confirmation(client: Client, callback_query: CallbackQuery):
         await callback_query.answer()
     except Exception as e:
         logger.error(f"Confirmation error: {e}")
-        await callback_query.answer("Failed to process confirmation", show_alert=True)
+        await callback_query.answer("Failed to confirm", show_alert=True)
 
-@Client.on_callback_query(filters.regex("^execute_(promotion|logged_in)_(true|false)$"))
-async def handle_execute_update(client: Client, callback_query: CallbackQuery):
+@Client.on_callback_query(filters.regex("^execute_"))
+async def handle_execute_action(client: Client, callback_query: CallbackQuery):
     try:
-        field = callback_query.data.split('_')[1]
-        value = True if callback_query.data.split('_')[2] == "true" else False
-        
+        action = callback_query.data.split("_")[1] + "_" + callback_query.data.split("_")[2]
         processing_msg = await callback_query.message.edit_text(
-            f"🔄 {'Enabling' if value else 'Disabling'} {field.replace('_', ' ')} for all users..."
+            f"🔄 {'Enabling' if 'enable' in action else 'Disabling'} {action.split('_')[1]} for all users..."
         )
         
-        updated_count = await update_all_users(field, value)
+        result = await perform_db_action(action)
+        await processing_msg.edit_text(result)
         
-        await processing_msg.edit_text(
-            f"✅ Successfully {'enabled' if value else 'disabled'} {field.replace('_', ' ')} "
-            f"for <code>{updated_count}</code> users!"
-        )
-        
-        # Return to status screen after 3 seconds
+        # Return to stats after 3 seconds
         await asyncio.sleep(3)
         stats_text, reply_markup = await get_database_stats()
         await callback_query.message.edit_text(
             stats_text,
             reply_markup=reply_markup
         )
-        
     except Exception as e:
-        logger.error(f"Execute update error: {e}")
-        await callback_query.message.edit_text(
-            "⚠️ Failed to update database. Please try again later."
-        )
+        logger.error(f"Execute action error: {e}")
+        await callback_query.answer("Failed to perform action", show_alert=True)
 
-@Client.on_callback_query(filters.regex("^back_to_status$"))
-async def handle_back_to_status(client: Client, callback_query: CallbackQuery):
+@Client.on_callback_query(filters.regex("^back_to_stats$"))
+async def handle_back_to_stats(client: Client, callback_query: CallbackQuery):
     try:
         stats_text, reply_markup = await get_database_stats()
         await callback_query.message.edit_text(
@@ -217,5 +232,5 @@ async def handle_back_to_status(client: Client, callback_query: CallbackQuery):
         )
         await callback_query.answer()
     except Exception as e:
-        logger.error(f"Back to status error: {e}")
-        await callback_query.answer("Failed to return to status", show_alert=True)
+        logger.error(f"Back to stats error: {e}")
+        await callback_query.answer("Failed to return", show_alert=True)
