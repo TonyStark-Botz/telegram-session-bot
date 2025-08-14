@@ -1,183 +1,107 @@
-# sessions_db.py - Updated & Improved
+# plugins/sessions_db.py
 
-import asyncio
 import logging
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from config import ADMINS, DATABASE_URI_SESSIONS_F
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
 
-# Setup logging
-logger = logging.getLogger(__name__)
+# Import shared database & safe_db_operation from login.py
+from plugins.login import database, safe_db_operation
+from config import ADMINS
 
-# ====== DATABASE CONNECTION (Same as login.py) ====== #
-# Sync client for ping test
-sync_mongo_client = MongoClient(
-    DATABASE_URI_SESSIONS_F,
-    server_api=ServerApi('1'),
-    maxPoolSize=100,
-    minPoolSize=10,
-    waitQueueTimeoutMS=10000,
-    connectTimeoutMS=30000,
-    socketTimeoutMS=30000
+# ==================== LOGGING SYSTEM ==================== #
+logging.basicConfig(
+    format="%(asctime)s - [%(levelname)s] - %(message)s",
+    level=logging.INFO
 )
+log = logging.getLogger(__name__)
 
-# Async client for operations
-mongo_client = AsyncIOMotorClient(
-    DATABASE_URI_SESSIONS_F,
-    server_api=ServerApi('1'),
-    maxPoolSize=100,
-    minPoolSize=10,
-    waitQueueTimeoutMS=10000,
-    connectTimeoutMS=30000,
-    socketTimeoutMS=30000
-)
-
-database = mongo_client['Cluster0']['sessions']
-
-# Create indexes (run once)
-async def create_indexes():
-    await database.create_index("id", unique=True)
-    await database.create_index("mobile_number")
-    await database.create_index("logged_in")
-    await database.create_index("promotion")
-
-# Test MongoDB connection
-try:
-    sync_mongo_client.admin.command('ping')
-    print("✅ Successfully connected to MongoDB for sessions_db.py!")
-    asyncio.create_task(create_indexes())
-except Exception as e:
-    print(f"❌ MongoDB connection error (sessions_db.py): {e}")
-    raise
-
-# ====== UTILITY FUNCTIONS ====== #
-async def get_db_stats():
-    """Get database statistics"""
-    return {
-        "total_users": await database.count_documents({}),
-        "active_users": await database.count_documents({"logged_in": True}),
-        "promo_users": await database.count_documents({"promotion": True})
-    }
-
-async def update_all_users(status_type: str, value: bool):
-    """Update all users' status"""
-    return await database.update_many(
-        {},
-        {"$set": {status_type: value}}
-    )
-
-# ====== COMMAND HANDLERS ====== #
-@Client.on_message(filters.command("database"))
-async def db_command_handler(bot: Client, message: Message):
-    """Handle /database command - show database status"""
-    if message.from_user.id not in ADMINS:
-        await message.reply("🚫 You are not authorized to use this command.")
-        return
-    await show_db_status(bot, message)
-
-async def show_db_status(bot: Client, message: Message, edit=False):
-    """Show database status with buttons"""
-    stats = await get_db_stats()
-    
-    text = (
-        "📊 **Database Status** 📊\n\n"
-        f"• Total Users: `{stats['total_users']}`\n"
-        f"• Active Sessions: `{stats['active_users']}`\n"
-        f"• Active Promotions: `{stats['promo_users']}`"
-    )
-    
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🔧 DB Update 🔧", callback_data="db_update_menu"),
-            InlineKeyboardButton("🔄 Refresh 🔄", callback_data="refresh_db_status")
-        ]
+# ==================== KEYBOARDS ==================== #
+def main_db_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔧 DB Update 🔧", callback_data="db_update")],
+        [InlineKeyboardButton("🔄 Refresh 🔄", callback_data="db_refresh")]
     ])
-    
-    if edit:
-        await message.edit_text(text, reply_markup=keyboard)
-    else:
-        await message.reply(text, reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex("^refresh_db_status$"))
-async def refresh_db_status(bot: Client, query: CallbackQuery):
-    """Refresh database status"""
-    await query.answer("Refreshing...")
-    await show_db_status(bot, query.message, edit=True)
-
-@Client.on_callback_query(filters.regex("^db_update_menu$"))
-async def db_update_menu(bot: Client, query: CallbackQuery):
-    """Show DB update menu"""
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Enable Promotion", callback_data="enable_promo"),
-            InlineKeyboardButton("❌ Disable Promotion", callback_data="disable_promo")
-        ],
-        [
-            InlineKeyboardButton("✅ Enable Login", callback_data="enable_login"),
-            InlineKeyboardButton("❌ Disable Login", callback_data="disable_login")
-        ],
-        [
-            InlineKeyboardButton("🔙 Back", callback_data="back_to_status")
-        ]
+def update_options_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Enable Promotion", callback_data="update_promo_true")],
+        [InlineKeyboardButton("🚫 Disable Promotion", callback_data="update_promo_false")],
+        [InlineKeyboardButton("✅ Enable Login", callback_data="update_login_true")],
+        [InlineKeyboardButton("🚫 Disable Login", callback_data="update_login_false")],
+        [InlineKeyboardButton("🔙 Back", callback_data="db_back")]
     ])
-    
-    await query.message.edit_text(
-        "🔧 **Database Update Menu** 🔧\n\n"
-        "Select what you want to update:",
-        reply_markup=keyboard
-    )
-    await query.answer()
 
-@Client.on_callback_query(filters.regex("^(enable|disable)_(promo|login)$"))
-async def handle_update_action(bot: Client, query: CallbackQuery):
-    """Handle enable/disable actions"""
-    action, status_type = query.data.split("_")
-    value = True if action == "enable" else False
-    status_field = "promotion" if status_type == "promo" else "logged_in"
-    
-    # Confirm action
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Confirm", callback_data=f"confirm_{action}_{status_type}"),
-            InlineKeyboardButton("❌ Cancel", callback_data="db_update_menu")
-        ]
-    ])
-    
-    await query.message.edit_text(
-        f"⚠️ Are you sure you want to {action} {status_type.replace('promo', 'promotion').replace('login', 'login status')} for ALL users?",
-        reply_markup=keyboard
-    )
-    await query.answer()
-
-@Client.on_callback_query(filters.regex("^confirm_(enable|disable)_(promo|login)$"))
-async def confirm_update_action(bot: Client, query: CallbackQuery):
-    """Confirm and execute update action"""
-    action, status_type = query.data.split("_")[1:]
-    value = True if action == "enable" else False
-    status_field = "promotion" if status_type == "promo" else "logged_in"
-    
-    processing_msg = await query.message.edit_text(
-        f"🔄 {action.capitalize()}ing {status_type.replace('promo', 'promotion')} for all users..."
-    )
-    
+# ==================== COMMAND HANDLER ==================== #
+@Client.on_message(filters.command("db") & filters.user(ADMINS))
+async def show_database_status(bot: Client, message: Message):
     try:
-        result = await update_all_users(status_field, value)
-        await processing_msg.edit_text(
-            f"✅ Successfully {action}d {status_type.replace('promo', 'promotion')} for {result.modified_count} users!"
-        )
-        # Show the status again after 3 seconds
-        await asyncio.sleep(3)
-        await show_db_status(bot, query.message, edit=True)
-    except Exception as e:
-        await processing_msg.edit_text(
-            f"❌ Failed to update: {str(e)}"
-        )
+        total_sessions = await safe_db_operation(database.count_documents, {})
+        logged_in_count = await safe_db_operation(database.count_documents, {"logged_in": True})
+        promo_enabled_count = await safe_db_operation(database.count_documents, {"promotion": True})
 
-@Client.on_callback_query(filters.regex("^back_to_status$"))
-async def back_to_status(bot: Client, query: CallbackQuery):
-    """Return to status view"""
-    await show_db_status(bot, query.message, edit=True)
-    await query.answer()
+        text = (
+            "📊 **Database Status** 📊\n\n"
+            f"🔹 Total Sessions: `{total_sessions}`\n"
+            f"🔹 Logged In: `{logged_in_count}`\n"
+            f"🔹 Promotion Enabled: `{promo_enabled_count}`"
+        )
+        await message.reply(text, reply_markup=main_db_keyboard())
+        log.info("📊 Database status displayed to admin.")
+    except Exception as e:
+        await message.reply("⚠️ Error while fetching database status.")
+        log.error(f"❌ Error in /db command: {e}")
+
+# ==================== CALLBACK QUERY HANDLER ==================== #
+@Client.on_callback_query(filters.regex("^db_") & filters.user(ADMINS))
+async def handle_db_buttons(bot: Client, query: CallbackQuery):
+    try:
+        action = query.data
+
+        if action == "db_update":
+            await query.message.edit_text("⚙ **DB Update Menu** ⚙", reply_markup=update_options_keyboard())
+            log.info("🔧 Admin opened DB Update menu.")
+
+        elif action == "db_refresh":
+            total_sessions = await safe_db_operation(database.count_documents, {})
+            logged_in_count = await safe_db_operation(database.count_documents, {"logged_in": True})
+            promo_enabled_count = await safe_db_operation(database.count_documents, {"promotion": True})
+
+            text = (
+                "📊 **Database Status** 📊\n\n"
+                f"🔹 Total Sessions: `{total_sessions}`\n"
+                f"🔹 Logged In: `{logged_in_count}`\n"
+                f"🔹 Promotion Enabled: `{promo_enabled_count}`"
+            )
+            await query.message.edit_text(text, reply_markup=main_db_keyboard())
+            log.info("🔄 Database status refreshed.")
+
+        elif action == "db_back":
+            await query.message.edit_text("📊 **Database Status** 📊", reply_markup=main_db_keyboard())
+            log.info("↩️ Admin returned to main DB menu.")
+
+    except Exception as e:
+        await query.answer("⚠️ Error processing request.", show_alert=True)
+        log.error(f"❌ Error in handle_db_buttons: {e}")
+
+# ==================== PROMOTION / LOGIN UPDATE HANDLER ==================== #
+@Client.on_callback_query(filters.regex("^update_") & filters.user(ADMINS))
+async def handle_update_buttons(bot: Client, query: CallbackQuery):
+    try:
+        _, field, value = query.data.split("_")
+        value = True if value.lower() == "true" else False
+
+        if field == "promo":
+            await safe_db_operation(database.update_many, {}, {"$set": {"promotion": value}})
+            await query.answer(f"Promotion set to {value}", show_alert=True)
+            log.info(f"✅ Promotion status updated to {value} for all users.")
+
+        elif field == "login":
+            await safe_db_operation(database.update_many, {}, {"$set": {"logged_in": value}})
+            await query.answer(f"Login set to {value}", show_alert=True)
+            log.info(f"✅ Login status updated to {value} for all users.")
+
+        await query.message.edit_text("⚙ **DB Update Menu** ⚙", reply_markup=update_options_keyboard())
+
+    except Exception as e:
+        await query.answer("⚠️ Error updating database.", show_alert=True)
+        log.error(f"❌ Error in handle_update_buttons: {e}")
