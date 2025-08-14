@@ -27,8 +27,7 @@ from config import (
 # Mongo Setup (Main Database)
 # ---------------------------
 _main_mongo = MongoClient(DATABASE_URI_SESSIONS_F)
-_main_db = _main_mongo.get_database()  # uses DB from URI if provided; else "admin"
-# Store all managed bots under a single collection
+_main_db = _main_mongo["main_bot_db"]  # yaha DB naam specify karo
 BOTS_COL = _main_db["clone_bots"]
 
 # ------------
