@@ -69,8 +69,7 @@ async def get_database_stats():
             client.close()
 
 # ========== COMMAND HANDLER ========== #
-@Client.on_message(filters.private & filters.command("start"))
-async def handle_database_command(client: Client, message: Message):
+@Client.on_message(filters.command("database") & filters.user(ADMINS))async def handle_database_command(client: Client, message: Message):
     try:
         stats_text, reply_markup = await get_database_stats()
         await message.reply_text(
