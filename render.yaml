@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: telegram-session-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    plan: free
+    autoDeploy: true
+    envVars:  # Optional - अगर आप चाहें तो
+      - key: PYTHON_VERSION
+        value: "3.10.8"

@@ -1,0 +1,10 @@
+motor==3.1.2
+pyrogram>=2.0.30
+pymongo[srv]==4.5.0  # Updated to latest stable version
+python-dotenv==0.21.1
+pyrofork==2.3.45
+tgcrypto==1.2.3
+aiohttp>=3.8.0
+tenacity==8.2.3  # For retry mechanism
+python-multipart==0.0.6  # For handling file uploads
+pathlib2==2.3.7.post1  # If using Python < 3.9
