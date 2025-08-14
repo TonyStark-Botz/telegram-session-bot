@@ -65,7 +65,9 @@ async def get_database_stats():
         
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("🔧 𝗗𝗕 𝗨𝗽𝗱𝗮𝘁𝗲 🔧", callback_data="db_update_menu"),
+                InlineKeyboardButton("🔧 𝗗𝗕 𝗨𝗽𝗱𝗮𝘁𝗲 🔧", callback_data="db_update_menu")
+            ],
+            [
                 InlineKeyboardButton("🔄 𝗥𝗲𝗳𝗿𝗲𝘀𝗵 🔄", callback_data="refresh_db_stats")
             ]
         ])
