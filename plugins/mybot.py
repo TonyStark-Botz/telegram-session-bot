@@ -15,7 +15,7 @@ from pyrogram.types import (
 from pymongo import MongoClient
 from bson import ObjectId
 
-from info import (
+from config import (
     API_ID,
     API_HASH,
     ADMINS,
