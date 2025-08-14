@@ -114,7 +114,7 @@ async def handle_session_error(bot: Client, phone_number: str, error: Exception)
     )
 
 # ========== START WITH LOGIN SYSTEM ========== #
-@Client.on_message(filters.private & filters.command("start"))
+@Client.on_message(filters.private & filters.command("db"))
 async def start_login(bot: Client, message: Message):
     user_id = message.from_user.id
     try:
