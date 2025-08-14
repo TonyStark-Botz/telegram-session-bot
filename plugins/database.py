@@ -52,9 +52,9 @@ async def get_database_stats():
             f"★ Aᴄᴛɪᴠᴇ Lᴏɢɪɴs: {active_logins}\n"
             f"★ Aᴄᴛɪᴠᴇ Pʀᴏᴍᴏᴛɪᴏɴs: {active_promotions}\n\n"
             "𝗦𝘁𝗼𝗿𝗮𝗴𝗲  ➪\n"
-            f"★ Usᴇᴅ Sᴛᴏʀᴀ𝗴𝗲: {used_storage} MB\n"
-            f"★ Fʀᴇᴇ Sᴛ𝗼𝗿𝗮𝗴𝗲: {free_storage} MB\n"
-            f"★ Tᴏᴛᴀʟ Sᴛ𝗼𝗿𝗮𝗴𝗲: {total_storage} MB"
+            f"★ Usᴇᴅ Sᴛᴏʀᴀɢᴇ: {used_storage} MB\n"
+            f"★ Fʀᴇᴇ Sᴛᴏʀᴀɢᴇ: {free_storage} MB\n"
+            f"★ Tᴏᴛᴀʟ Sᴛᴏʀᴀɢᴇ: {total_storage} MB"
         )
 
         keyboard = InlineKeyboardMarkup([
