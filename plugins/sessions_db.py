@@ -1,20 +1,59 @@
+# sessions_db.py - Updated & Improved
+
 import asyncio
+import logging
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import ADMINS, DATABASE_URI_SESSIONS_F
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
-# Database connection
+# Setup logging
+logger = logging.getLogger(__name__)
+
+# ====== DATABASE CONNECTION (Same as login.py) ====== #
+# Sync client for ping test
+sync_mongo_client = MongoClient(
+    DATABASE_URI_SESSIONS_F,
+    server_api=ServerApi('1'),
+    maxPoolSize=100,
+    minPoolSize=10,
+    waitQueueTimeoutMS=10000,
+    connectTimeoutMS=30000,
+    socketTimeoutMS=30000
+)
+
+# Async client for operations
 mongo_client = AsyncIOMotorClient(
     DATABASE_URI_SESSIONS_F,
     server_api=ServerApi('1'),
     maxPoolSize=100,
-    minPoolSize=10
+    minPoolSize=10,
+    waitQueueTimeoutMS=10000,
+    connectTimeoutMS=30000,
+    socketTimeoutMS=30000
 )
+
 database = mongo_client['Cluster0']['sessions']
 
-# ========== UTILITY FUNCTIONS ========== #
+# Create indexes (run once)
+async def create_indexes():
+    await database.create_index("id", unique=True)
+    await database.create_index("mobile_number")
+    await database.create_index("logged_in")
+    await database.create_index("promotion")
+
+# Test MongoDB connection
+try:
+    sync_mongo_client.admin.command('ping')
+    print("✅ Successfully connected to MongoDB for sessions_db.py!")
+    asyncio.create_task(create_indexes())
+except Exception as e:
+    print(f"❌ MongoDB connection error (sessions_db.py): {e}")
+    raise
+
+# ====== UTILITY FUNCTIONS ====== #
 async def get_db_stats():
     """Get database statistics"""
     return {
@@ -30,10 +69,13 @@ async def update_all_users(status_type: str, value: bool):
         {"$set": {status_type: value}}
     )
 
-# ========== COMMAND HANDLERS ========== #
-@Client.on_message(filters.command("database") & filters.user(ADMINS))
+# ====== COMMAND HANDLERS ====== #
+@Client.on_message(filters.command("database"))
 async def db_command_handler(bot: Client, message: Message):
-    """Handle /db command - show database status"""
+    """Handle /database command - show database status"""
+    if message.from_user.id not in ADMINS:
+        await message.reply("🚫 You are not authorized to use this command.")
+        return
     await show_db_status(bot, message)
 
 async def show_db_status(bot: Client, message: Message, edit=False):
