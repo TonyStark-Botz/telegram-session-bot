@@ -6,7 +6,8 @@ from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    ReplyKeyboardRemove
+    ReplyKeyboardRemove,
+    CallbackQuery  # Added this import
 )
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
