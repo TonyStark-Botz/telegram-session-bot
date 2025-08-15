@@ -98,13 +98,12 @@ async def start_add_bot_workflow(client: Client, message: Message):
         parse_mode="HTML"
     )
 
-@Client.on_message(filters.private & ~filters.command(["start", "addbot", "deletebot", "botsbroadcast"]))
+@Client.on_message(filters.private & ~filters.command(["addbot", "deletebot", "botsbroadcast"]))
 async def handle_workflow_messages(client: Client, message: Message):
     user_id = message.from_user.id
     if user_id not in user_states or user_states[user_id].get("workflow") != "add_bot":
         return
-    
-    current_state = user_states[user_id]
+    # Rest of the function remains the same...    current_state = user_states[user_id]
     
     try:
         if current_state["step"] == "awaiting_token":
