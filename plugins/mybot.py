@@ -9,12 +9,14 @@ from pyrogram.types import (
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
     KeyboardButton,
-    ReplyKeyboardRemove
+    ReplyKeyboardRemove,
+    CallbackQuery  # This was missing
 )
 from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 from pymongo.errors import PyMongoError, ConnectionFailure, OperationFailure
-from config import DATABASE_URI_SESSIONS_F, ADMINS
 from motor.motor_asyncio import AsyncIOMotorClient
+from config import DATABASE_URI_SESSIONS_F, ADMINS
 
 # ========== LOGGING SETUP ========== #
 logging.basicConfig(
