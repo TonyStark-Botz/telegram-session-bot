@@ -10,7 +10,7 @@ from pyrogram.types import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardRemove,
-    CallbackQuery  # This was missing
+    CallbackQuery
 )
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
@@ -151,7 +151,7 @@ async def add_bot_start(client: Client, message: Message):
         reply_markup=ReplyKeyboardRemove()
     )
 
-@Client.on_message(filters.private & filters.text & ~filters.command(["start", "addbot", "deletebot", "botsbroadcast"]))
+@Client.on_message(filters.private & filters.text & ~filters.command(["addbot", "deletebot", "botsbroadcast"]))
 async def handle_addbot_steps(client: Client, message: Message):
     user_id = message.from_user.id
     if user_id not in user_states or user_states[user_id].get("command") != "addbot":
@@ -446,7 +446,7 @@ async def handle_broadcast_selection(client: Client, callback_query: CallbackQue
         "Please send your broadcast message (text, photo, or document):"
     )
 
-@Client.on_message(filters.private & (filters.text | filters.photo | filters.document) & ~filters.command())
+@Client.on_message(filters.private & (filters.text | filters.photo | filters.document) & ~filters.command(["addbot", "deletebot", "botsbroadcast"]))
 async def handle_broadcast_message(client: Client, message: Message):
     user_id = message.from_user.id
     if user_id not in user_states or user_states[user_id].get("command") != "broadcast":
